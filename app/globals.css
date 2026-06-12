@@ -1,0 +1,20 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #07080c;
+  --text:    #e8e4dc;
+  --muted:   rgba(232, 228, 220, 0.55);
+  --gold:    #ffd700;
+  --border:  rgba(255, 215, 0, 0.14);
+  --card:    rgba(255, 255, 255, 0.035);
+  --glow:    rgba(255, 215, 0, 0.12);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: Manrope, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
