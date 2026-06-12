@@ -84,9 +84,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       let issue;
       try {
         issue = await linearClient.issue(issueId);
-      } catch {
-        const search = await linearClient.issueSearch({ query: issueId, first: 1 });
-        issue = search.nodes?.[0];
+      } catch (err) {
+        console.warn("[webhook] Failed to fetch issue by ID, trying as identifier", { issueId, error: String(err) });
+        try {
+          issue = await linearClient.issue(issueId);
+        } catch {
+          issue = null;
+        }
       }
 
       if (!issue) {

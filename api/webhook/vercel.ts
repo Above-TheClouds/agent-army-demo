@@ -139,8 +139,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const linearComment: any = linear.createComment;
 
   // Look up the issue by identifier (e.g. "ENG-42")
-  const issueResult = await linear.issueSearch({ query: issueIdentifier, first: 1 });
-  const issue = issueResult.nodes?.[0];
+  let issue: any;
+  try {
+    issue = await linear.issue(issueIdentifier);
+  } catch (err) {
+    console.warn(`[vercel-webhook] Failed to fetch issue ${issueIdentifier}`, String(err));
+    issue = null;
+  }
 
   if (!issue) {
     console.warn(`[vercel-webhook] No Linear issue found for ${issueIdentifier}`);
