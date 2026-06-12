@@ -26,7 +26,19 @@ npm install
 cp .env.example .env   # fill in all values
 ```
 
-See `.env.example` for where to get each key.
+**Environment variables explained:**
+
+| Variable | Where to get it | Used for |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) | Claude writes the implementation plan |
+| `TRIGGER_SECRET_KEY` | Trigger.dev → Project → API Keys | Queuing and running agent tasks |
+| `TRIGGER_PROJECT_REF` | Trigger.dev dashboard | Linking tasks to your project |
+| `LINEAR_API_KEY` | Linear → Settings → API → Personal API keys | Posting the plan + preview URL as Linear comments |
+| `LINEAR_WEBHOOK_SECRET` | Linear → Settings → API → Webhooks | Verifying webhook signatures |
+| `LINEAR_AGENT_USER_ID` | Linear → Settings → Members → agent user URL | Optional: trigger by assignee instead of label |
+| `GITHUB_TOKEN` | GitHub → Settings → Developer settings → Fine-grained PATs | Opening draft PRs |
+| `GITHUB_REPO` | — | Target repo for PRs (e.g. `Above-TheClouds/agent-army-demo`) |
+| `VERCEL_WEBHOOK_SECRET` | Vercel → Project → Settings → Webhooks | Verifying deployment webhook signatures |
 
 ---
 
