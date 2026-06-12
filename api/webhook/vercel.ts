@@ -14,10 +14,13 @@
 
 import { createHmac, timingSafeEqual } from "crypto";
 import { LinearClient } from "@linear/sdk";
+import { Octokit } from "@octokit/rest";
 import type { IncomingMessage, ServerResponse } from "http";
 
 const WEBHOOK_SECRET = process.env.VERCEL_WEBHOOK_SECRET ?? "";
 const LINEAR_API_KEY = process.env.LINEAR_API_KEY ?? "";
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN ?? "";
+const GITHUB_REPO = process.env.GITHUB_REPO ?? "";
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   if (req.method !== "POST") {
@@ -89,9 +92,39 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
+  let prUrl = "";
+  if (GITHUB_TOKEN && GITHUB_REPO) {
+    const [owner, repo] = GITHUB_REPO.split("/");
+    if (owner && repo) {
+      const octokit = new Octokit({ auth: GITHUB_TOKEN });
+      const prList = await octokit.pulls.list({
+        owner,
+        repo,
+        state: "open",
+        head: `${owner}:${branch}`,
+      });
+      const pr = prList.data[0];
+      if (pr) {
+        prUrl = pr.html_url;
+      }
+    }
+  }
+
+  const lines = [
+    "🚀 **Preview deployment ready**",
+    "",
+    `[Preview site](${previewUrl})`,
+  ];
+
+  if (prUrl) {
+    lines.push("", `[Draft PR](${prUrl})`);
+  }
+
+  lines.push("", `Branch: \`${branch}\``);
+
   await linear.createComment({
     issueId: issue.id,
-    body: `🚀 **Preview deployment ready**\n\n[${previewUrl}](${previewUrl})\n\nBranch: \`${branch}\``,
+    body: lines.join("\n"),
   });
 
   console.log(`[vercel-webhook] Posted preview URL to ${issueIdentifier}: ${previewUrl}`);

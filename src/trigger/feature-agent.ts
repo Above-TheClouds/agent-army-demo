@@ -106,12 +106,68 @@ Keep it tight. A human will review this plan and approve or redirect before any 
         plan,
         "",
         "---",
-        "*Review this plan. Reply **approve** to proceed, or give feedback to refine it.*",
+        "*Review this plan. Reply **ship it** to merge after you verify the preview, or reply with feedback to refine it.*",
         `*[View issue](${issue.url})*`,
       ].join("\n"),
     });
 
     logger.info("Plan posted to Linear", { identifier: issue.identifier });
+
+    // ── 3.1 Ask Claude to generate code changes for the issue ─────────────────
+    logger.info("Requesting code changes from Claude...");
+
+    const codeResponse = await anthropic.messages.create({
+      model: "claude-opus-4-7",
+      max_tokens: 2048,
+      system: `You are a senior software engineer that writes production-ready code changes.
+You will be given a Linear issue title and description, and a short implementation plan.
+Your job is to output a JSON object with a files array containing the exact file paths and complete updated file contents needed to implement the issue.
+Only return valid JSON, nothing else.
+If the issue requires changing a file, include the full new file contents for each changed file.
+If no code changes are needed, return {"files":[]}.
+Use Unix-style paths and avoid markdown formatting.`,
+      messages: [
+        {
+          role: "user",
+          content: `Issue: ${issue.identifier}: ${linearIssue.title}
+
+${description}
+
+Plan:
+${plan}
+
+Return only JSON in this exact shape:
+{
+  "files": [
+    {
+      "path": "path/to/file.ext",
+      "content": "... full file contents ..."
+    }
+  ]
+}
+`,
+        },
+      ],
+    });
+
+    const codeOutput =
+      codeResponse.content[0].type === "text"
+        ? codeResponse.content[0].text
+        : "";
+
+    let filesToChange: Array<{ path: string; content: string }> = [];
+
+    try {
+      const json = parseJson(codeOutput);
+      if (Array.isArray(json.files)) {
+        filesToChange = json.files;
+      }
+    } catch (err) {
+      logger.error("Failed to parse code JSON from Claude", {
+        error: String(err),
+        output: codeOutput,
+      });
+    }
 
     // ── 4. Optionally open a GitHub draft PR ─────────────────────────────────
     // Only runs when GITHUB_REPO is set (format: "owner/repo")
@@ -135,42 +191,87 @@ Keep it tight. A human will review this plan and approve or redirect before any 
           sha: ref.object.sha,
         });
 
-        // Create a commit on the branch with the plan in .github/
-        const { data: blob } = await octokit.git.createBlob({
-          owner,
-          repo,
-          content: plan,
-          encoding: "utf-8",
-        });
+        let commitSha = ref.object.sha;
 
-        const { data: tree } = await octokit.git.createTree({
-          owner,
-          repo,
-          base_tree: ref.object.sha,
-          tree: [
-            {
-              path: `.github/agent-plans/${issue.identifier}-plan.md`,
+        if (filesToChange.length > 0) {
+          const blobs = await Promise.all(
+            filesToChange.map((file) =>
+              octokit.git.createBlob({
+                owner,
+                repo,
+                content: file.content,
+                encoding: "utf-8",
+              })
+            )
+          );
+
+          const tree = await octokit.git.createTree({
+            owner,
+            repo,
+            base_tree: ref.object.sha,
+            tree: filesToChange.map((file, index) => ({
+              path: file.path,
               mode: "100644",
               type: "blob",
-              sha: blob.sha,
-            },
-          ],
-        });
+              sha: blobs[index].data.sha,
+            })),
+          });
 
-        const { data: commit } = await octokit.git.createCommit({
-          owner,
-          repo,
-          message: `[Draft] ${issue.identifier}: ${linearIssue.title}\n\nImplementation plan stored in .github/agent-plans/`,
-          tree: tree.sha,
-          parents: [ref.object.sha],
-        });
+          const commit = await octokit.git.createCommit({
+            owner,
+            repo,
+            message: `[Draft] ${issue.identifier}: ${linearIssue.title}`,
+            tree: tree.data.sha,
+            parents: [ref.object.sha],
+          });
 
-        await octokit.git.updateRef({
-          owner,
-          repo,
-          ref: `heads/${branchName}`,
-          sha: commit.sha,
-        });
+          await octokit.git.updateRef({
+            owner,
+            repo,
+            ref: `heads/${branchName}`,
+            sha: commit.data.sha,
+          });
+
+          commitSha = commit.data.sha;
+        } else {
+          const blob = await octokit.git.createBlob({
+            owner,
+            repo,
+            content: plan,
+            encoding: "utf-8",
+          });
+
+          const tree = await octokit.git.createTree({
+            owner,
+            repo,
+            base_tree: ref.object.sha,
+            tree: [
+              {
+                path: `.github/agent-plans/${issue.identifier}-plan.md`,
+                mode: "100644",
+                type: "blob",
+                sha: blob.data.sha,
+              },
+            ],
+          });
+
+          const commit = await octokit.git.createCommit({
+            owner,
+            repo,
+            message: `[Draft] ${issue.identifier}: ${linearIssue.title}\n\nImplementation plan stored in .github/agent-plans/`,
+            tree: tree.data.sha,
+            parents: [ref.object.sha],
+          });
+
+          await octokit.git.updateRef({
+            owner,
+            repo,
+            ref: `heads/${branchName}`,
+            sha: commit.data.sha,
+          });
+
+          commitSha = commit.data.sha;
+        }
 
         // Open a draft PR
         const { data: pr } = await octokit.pulls.create({
@@ -224,4 +325,13 @@ function slugify(text: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 40);
+}
+
+function parseJson(text: string): any {
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first === -1 || last === -1) {
+    throw new Error("No JSON object found");
+  }
+  return JSON.parse(text.slice(first, last + 1));
 }

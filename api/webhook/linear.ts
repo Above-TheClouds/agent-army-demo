@@ -8,11 +8,17 @@
 
 import { createHmac, timingSafeEqual } from "crypto";
 import { tasks } from "@trigger.dev/sdk/v3";
+import { Octokit } from "@octokit/rest";
+import { LinearClient } from "@linear/sdk";
 import type { featureAgent } from "../../src/trigger/feature-agent.js";
 import type { IncomingMessage, ServerResponse } from "http";
 
 const WEBHOOK_SECRET = process.env.LINEAR_WEBHOOK_SECRET ?? "";
 const AGENT_USER_ID = process.env.LINEAR_AGENT_USER_ID ?? "";
+const LINEAR_API_KEY = process.env.LINEAR_API_KEY ?? "";
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN ?? "";
+const GITHUB_REPO = process.env.GITHUB_REPO ?? "";
+const linearClient = new LinearClient({ apiKey: LINEAR_API_KEY });
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   if (req.method !== "POST") {
@@ -55,6 +61,87 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     hasFeatureLabel,
     assignedToAgent,
   });
+
+  if (typeof eventType === "string" && /comment/i.test(eventType) && eventAction === "create") {
+    const commentBody = (data.body || data.text || "").toString();
+    const isAgentComment = AGENT_USER_ID && data.creatorId === AGENT_USER_ID;
+    const isMergeCommand = /(?:^|\s)(?:merge|ship it|ship)(?:\s|$)/i.test(commentBody);
+
+    if (!isAgentComment && isMergeCommand) {
+      if (!GITHUB_TOKEN || !GITHUB_REPO) {
+        console.warn("[webhook] GitHub env vars missing for merge command");
+        res.writeHead(200).end("OK");
+        return;
+      }
+
+      const issueId = data.issueId || data.issue?.id || data.issue?.identifier;
+      if (!issueId) {
+        console.warn("[webhook] No issue id found for merge command");
+        res.writeHead(200).end("OK");
+        return;
+      }
+
+      let issue;
+      try {
+        issue = await linearClient.issue(issueId);
+      } catch {
+        const search = await linearClient.issueSearch({ query: issueId, first: 1 });
+        issue = search.nodes?.[0];
+      }
+
+      if (!issue) {
+        console.warn("[webhook] Linear issue not found for merge command", { issueId });
+        res.writeHead(200).end("OK");
+        return;
+      }
+
+      const issueIdentifier = issue.identifier;
+      const [owner, repo] = GITHUB_REPO.split("/");
+      const octokit = new Octokit({ auth: GITHUB_TOKEN });
+
+      const prs = await octokit.pulls.list({
+        owner,
+        repo,
+        state: "open",
+      });
+
+      const pr = prs.data.find((pr) =>
+        pr.head.ref.toLowerCase().startsWith(`agent/${issueIdentifier.toLowerCase()}-`) ||
+        pr.title.toLowerCase().includes(issueIdentifier.toLowerCase())
+      );
+
+      if (!pr) {
+        await linearClient.createComment({
+          issueId: issue.id,
+          body: `⚠️ Could not find an open draft PR for ${issueIdentifier}.`,
+        });
+        res.writeHead(200).end("OK");
+        return;
+      }
+
+      try {
+        await octokit.pulls.merge({
+          owner,
+          repo,
+          pull_number: pr.number,
+          merge_method: "squash",
+        });
+
+        await linearClient.createComment({
+          issueId: issue.id,
+          body: `✅ Merged PR [${pr.title}](${pr.html_url}).`,
+        });
+      } catch (err) {
+        await linearClient.createComment({
+          issueId: issue.id,
+          body: `⚠️ Failed to merge PR: ${String(err)}`,
+        });
+      }
+
+      res.writeHead(200).end("OK");
+      return;
+    }
+  }
 
   if (eventType !== "Issue" || !["create", "update"].includes(eventAction)) {
     res.writeHead(200).end("OK");
