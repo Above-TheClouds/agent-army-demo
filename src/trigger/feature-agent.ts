@@ -2,8 +2,8 @@ import { task, logger } from "@trigger.dev/sdk/v3";
 import Anthropic from "@anthropic-ai/sdk";
 import { LinearClient } from "@linear/sdk";
 import { Octokit } from "@octokit/rest";
-import { readFileSync } from "fs";
-import { join } from "path";
+import { readFileSync, readdirSync, statSync } from "fs";
+import { join, relative } from "path";
 
 // ---------------------------------------------------------------------------
 // Clients — initialised once per worker, reused across runs
@@ -86,20 +86,7 @@ ${description}
 
 Relevant repo files:
 
-app/page.tsx:
-${repoContext.appPage}
-
-app/layout.tsx:
-${repoContext.appLayout}
-
-app/globals.css:
-${repoContext.globalsCss}
-
-DESIGN.md:
-${repoContext.designMd}
-
-README.md (project overview):
-${repoContext.readmeMd}
+${formatContext(repoContext)}
 
 Produce:
 1. **Summary** — one paragraph on what needs to be built and why
@@ -141,14 +128,18 @@ Keep it tight. A human will review this plan and approve or redirect before any 
 
     const codeResponse = await anthropic.messages.create({
       model: "claude-opus-4-7",
-      max_tokens: 2048,
+      max_tokens: 4096,
       system: `You are a senior software engineer that writes production-ready code changes.
-You will be given a Linear issue title and description, and a short implementation plan.
-Your job is to output a JSON object with a files array containing the exact file paths and complete updated file contents needed to implement the issue.
-Only return valid JSON, nothing else.
-If the issue requires changing a file, include the full new file contents for each changed file.
-If no code changes are needed, return {"files":[]}.
-Use Unix-style paths and avoid markdown formatting.`,
+You will be given a Linear issue, an implementation plan, and the CURRENT contents of the relevant files.
+Your job is to output a JSON object with a files array containing the exact file paths and COMPLETE updated file contents.
+
+CRITICAL RULES — you must follow all of these:
+- You MUST always include at least one file in the files array. Never return {"files":[]}.
+- For any issue involving copy, text, headlines, or homepage content: you MUST update app/page.tsx with the actual new text.
+- Include the FULL file contents for every file you change — not diffs, not snippets, the entire file.
+- Only return valid JSON, nothing else. No markdown fences, no explanation, just the JSON object.
+- Use Unix-style paths (e.g. "app/page.tsx").
+- Do not change files unrelated to the issue.`,
       messages: [
         {
           role: "user",
@@ -159,12 +150,16 @@ ${description}
 Plan:
 ${plan}
 
-Return only JSON in this exact shape:
+Current file contents:
+
+${formatContext(repoContext)}
+
+Return only JSON in this exact shape (always at least one file):
 {
   "files": [
     {
       "path": "path/to/file.ext",
-      "content": "... full file contents ..."
+      "content": "... complete file contents ..."
     }
   ]
 }
@@ -214,8 +209,6 @@ Return only JSON in this exact shape:
           sha: ref.object.sha,
         });
 
-        let commitSha = ref.object.sha;
-
         if (filesToChange.length > 0) {
           const blobs = await Promise.all(
             filesToChange.map((file) =>
@@ -254,8 +247,6 @@ Return only JSON in this exact shape:
             ref: `heads/${branchName}`,
             sha: commit.data.sha,
           });
-
-          commitSha = commit.data.sha;
         } else {
           const blob = await octokit.git.createBlob({
             owner,
@@ -292,8 +283,6 @@ Return only JSON in this exact shape:
             ref: `heads/${branchName}`,
             sha: commit.data.sha,
           });
-
-          commitSha = commit.data.sha;
         }
 
         // Open a draft PR
@@ -363,21 +352,48 @@ function parseJson(text: string): any {
   return JSON.parse(text.slice(first, last + 1));
 }
 
-function getRepoContext() {
+// Returns a map of repo-relative path → file contents for all files under app/
+// plus top-level docs. New files added to the repo are picked up automatically.
+function getRepoContext(): Record<string, string> {
   const root = process.cwd();
-  return {
-    appPage: readFileSafe(join(root, "app/page.tsx")),
-    appLayout: readFileSafe(join(root, "app/layout.tsx")),
-    globalsCss: readFileSafe(join(root, "app/globals.css")),
-    designMd: readFileSafe(join(root, "DESIGN.md")),
-    readmeMd: readFileSafe(join(root, "README.md")),
-  };
+  const files: Record<string, string> = {};
+
+  for (const rel of walkDir(join(root, "app"))) {
+    files[rel] = readFileSafe(join(root, rel));
+  }
+
+  for (const doc of ["DESIGN.md", "README.md", "CLAUDE.md"]) {
+    const content = readFileSafe(join(root, doc));
+    if (content) files[doc] = content;
+  }
+
+  return files;
+}
+
+function walkDir(dir: string, root = dir): string[] {
+  const entries = readdirSync(dir, { withFileTypes: true });
+  const results: string[] = [];
+  for (const entry of entries) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...walkDir(full, root));
+    } else {
+      results.push(relative(root, full).replace(/\\/g, "/").replace(/^/, "app/"));
+    }
+  }
+  return results;
+}
+
+function formatContext(files: Record<string, string>): string {
+  return Object.entries(files)
+    .map(([path, content]) => `${path}:\n${content}`)
+    .join("\n\n");
 }
 
 function readFileSafe(path: string): string {
   try {
     return readFileSync(path, "utf8");
-  } catch (err) {
+  } catch {
     return "";
   }
 }
