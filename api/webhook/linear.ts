@@ -35,17 +35,29 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  if (payload.type !== "Issue" || !["create", "update"].includes(payload.action as string)) {
-    res.writeHead(200).end("OK");
-    return;
-  }
-
+  const eventType = payload.type;
+  const eventAction = payload.action as string;
   const data = payload.data as any;
   const labels = data?.labels?.nodes ?? [];
   const hasFeatureLabel = labels.some((l: { name: string }) => l.name === "feature:build");
   const assignedToAgent = AGENT_USER_ID && data?.assigneeId === AGENT_USER_ID;
 
+  console.log("[webhook] Linear payload", {
+    type: eventType,
+    action: eventAction,
+    identifier: data?.identifier,
+    labels: labels.map((l: any) => l.name),
+    hasFeatureLabel,
+    assignedToAgent,
+  });
+
+  if (eventType !== "Issue" || !["create", "update"].includes(eventAction)) {
+    res.writeHead(200).end("OK");
+    return;
+  }
+
   if (!hasFeatureLabel && !assignedToAgent) {
+    console.log("[webhook] Ignoring event: no feature label or assignee match");
     res.writeHead(200).end("OK");
     return;
   }
