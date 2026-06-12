@@ -15,12 +15,13 @@
     "@anthropic-ai/sdk": "^0.39.0",
     "@linear/sdk": "^27.0.0",
     "@octokit/rest": "^21.0.0",
-    "@trigger.dev/sdk": "^3.3.0",
+    "@trigger.dev/sdk": "^4.4.6",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@trigger.dev/build": "^4.4.6",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
