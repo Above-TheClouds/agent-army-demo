@@ -136,7 +136,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   }
 
   const linear = new LinearClient({ apiKey: LINEAR_API_KEY }) as any;
-  const linearComment: any = linear.createComment;
+  const linearComment: any = linear.createComment.bind(linear);
 
   // Look up the issue by identifier (e.g. "ENG-42")
   let issue: any;
