@@ -158,6 +158,22 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
+  // For update events, only trigger when the relevant field *just changed* —
+  // otherwise any edit to an already-labelled issue fires the agent again.
+  if (eventAction === "update") {
+    const changes = payload.changes as Record<string, { from: unknown; to: unknown }> | undefined;
+
+    const assigneeJustChanged = changes?.assigneeId?.to === AGENT_USER_ID;
+    // labelIds changed AND the issue now has feature:build → the label was just added
+    const labelJustAdded = hasFeatureLabel && changes?.labelIds !== undefined;
+
+    if (!assigneeJustChanged && !labelJustAdded) {
+      console.log("[webhook] Ignoring update: no relevant field changed");
+      res.writeHead(200).end("OK");
+      return;
+    }
+  }
+
   const trigger = assignedToAgent ? "assigned-to-agent" : "label:feature:build";
 
   await tasks.trigger<typeof featureAgent>("feature-agent", payload as any);
