@@ -135,6 +135,43 @@ Keep it tight. A human will review this plan and approve or redirect before any 
           sha: ref.object.sha,
         });
 
+        // Create a commit on the branch with the plan in .github/
+        const { data: blob } = await octokit.git.createBlob({
+          owner,
+          repo,
+          content: plan,
+          encoding: "utf-8",
+        });
+
+        const { data: tree } = await octokit.git.createTree({
+          owner,
+          repo,
+          base_tree: ref.object.sha,
+          tree: [
+            {
+              path: `.github/agent-plans/${issue.identifier}-plan.md`,
+              mode: "100644",
+              type: "blob",
+              sha: blob.sha,
+            },
+          ],
+        });
+
+        const { data: commit } = await octokit.git.createCommit({
+          owner,
+          repo,
+          message: `[Draft] ${issue.identifier}: ${linearIssue.title}\n\nImplementation plan stored in .github/agent-plans/`,
+          tree: tree.sha,
+          parents: [ref.object.sha],
+        });
+
+        await octokit.git.updateRef({
+          owner,
+          repo,
+          ref: `heads/${branchName}`,
+          sha: commit.sha,
+        });
+
         // Open a draft PR
         const { data: pr } = await octokit.pulls.create({
           owner,
