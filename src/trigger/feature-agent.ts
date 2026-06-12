@@ -2,6 +2,8 @@ import { task, logger } from "@trigger.dev/sdk/v3";
 import Anthropic from "@anthropic-ai/sdk";
 import { LinearClient } from "@linear/sdk";
 import { Octokit } from "@octokit/rest";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 // ---------------------------------------------------------------------------
 // Clients — initialised once per worker, reused across runs
@@ -63,12 +65,17 @@ export const featureAgent = task({
     // ── 2. Ask Claude to produce an implementation plan ──────────────────────
     logger.info("Calling Claude...");
 
+    const repoContext = getRepoContext();
+
     const response = await anthropic.messages.create({
       model: "claude-opus-4-7",
       max_tokens: 2048,
-      system: `You are a senior software engineer reviewing a Linear issue.
-Your job is to produce a clear, specific implementation plan that a developer can follow.
-Be concrete. Reference file paths and patterns when you can infer them from the description.
+      system: `You are a senior software engineer reviewing a Linear issue in a real Next.js repository.
+Use the exact current code from the repo context below.
+If the issue involves copy or homepage text, update app/page.tsx directly.
+Do not produce generic product requirements.
+Be concrete, concise, and specific to this codebase.
+Avoid using dashes (-) in the text you generate.
 Do not write code — write a plan that will be reviewed by a human before any code is written.`,
       messages: [
         {
@@ -77,10 +84,27 @@ Do not write code — write a plan that will be reviewed by a human before any c
 
 ${description}
 
+Relevant repo files:
+
+app/page.tsx:
+${repoContext.appPage}
+
+app/layout.tsx:
+${repoContext.appLayout}
+
+app/globals.css:
+${repoContext.globalsCss}
+
+DESIGN.md:
+${repoContext.designMd}
+
+README.md (project overview):
+${repoContext.readmeMd}
+
 Produce:
 1. **Summary** — one paragraph on what needs to be built and why
 2. **Implementation steps** — 5–10 numbered, concrete steps
-3. **Files to create or modify** — best guesses based on the description
+3. **Files to create or modify** — exact file paths and only the files that must change
 4. **Edge cases** — what could go wrong
 5. **Testing approach** — what tests should cover this
 
@@ -297,10 +321,14 @@ Return only JSON in this exact shape:
 
         logger.info("Draft PR opened", { prUrl: pr.html_url });
 
-        // Post the PR link back to Linear
+        // Post the PR link back to Linear and explain the preview follows separately
         await linear.createComment({
           issueId: issue.id,
-          body: `🔗 Draft PR ready for review: [${pr.title}](${pr.html_url})`,
+          body: [
+            `🔗 Draft PR ready for review: [${pr.title}](${pr.html_url})`,
+            "",
+            "A preview deployment URL will be posted in a follow-up comment once Vercel finishes.",
+          ].join("\n"),
         });
       } catch (err) {
         logger.error("Failed to open draft PR", { error: String(err) });
@@ -334,4 +362,23 @@ function parseJson(text: string): any {
     throw new Error("No JSON object found");
   }
   return JSON.parse(text.slice(first, last + 1));
+}
+
+function getRepoContext() {
+  const root = process.cwd();
+  return {
+    appPage: readFileSafe(join(root, "app/page.tsx")),
+    appLayout: readFileSafe(join(root, "app/layout.tsx")),
+    globalsCss: readFileSafe(join(root, "app/globals.css")),
+    designMd: readFileSafe(join(root, "DESIGN.md")),
+    readmeMd: readFileSafe(join(root, "README.md")),
+  };
+}
+
+function readFileSafe(path: string): string {
+  try {
+    return readFileSync(path, "utf8");
+  } catch (err) {
+    return "";
+  }
 }

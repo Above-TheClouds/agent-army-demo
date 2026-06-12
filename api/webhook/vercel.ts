@@ -110,17 +110,19 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     }
   }
 
-  const lines = [
+  const lines = [];
+
+  if (prUrl) {
+    lines.push(`🔗 Draft PR ready for review: [View draft PR](${prUrl})`, "");
+  }
+
+  lines.push(
     "🚀 **Preview deployment ready**",
     "",
     `[Preview site](${previewUrl})`,
-  ];
-
-  if (prUrl) {
-    lines.push("", `[Draft PR](${prUrl})`);
-  }
-
-  lines.push("", `Branch: \`${branch}\``);
+    "",
+    `Branch: \`${branch}\``
+  );
 
   await linear.createComment({
     issueId: issue.id,
