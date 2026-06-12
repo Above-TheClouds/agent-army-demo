@@ -48,6 +48,12 @@ export const featureAgent = task({
       title: issue.title,
     });
 
+    // ── 0. Post a comment to show the agent is analyzing ─────────────────────
+    await linear.createComment({
+      issueId: issue.id,
+      body: "🤖 **Feature Agent** is analyzing this issue...",
+    });
+
     // ── 1. Fetch the full issue from Linear ─────────────────────────────────
     const linearIssue = await linear.issue(issue.id);
     const description = linearIssue.description ?? "(no description provided)";
