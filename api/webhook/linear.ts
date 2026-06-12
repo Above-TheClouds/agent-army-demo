@@ -38,8 +38,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const eventType = payload.type;
   const eventAction = payload.action as string;
   const data = payload.data as any;
-  const labels = data?.labels?.nodes ?? [];
-  const hasFeatureLabel = labels.some((l: { name: string }) => l.name === "feature:build");
+  const labels = (data?.labels ?? []) as any[];
+  const hasFeatureLabel = labels.some((l: any) => l.name === "feature:build");
   const assignedToAgent = AGENT_USER_ID && data?.assigneeId === AGENT_USER_ID;
 
   console.log("[webhook] Raw Linear payload data", {
