@@ -42,6 +42,11 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const hasFeatureLabel = labels.some((l: { name: string }) => l.name === "feature:build");
   const assignedToAgent = AGENT_USER_ID && data?.assigneeId === AGENT_USER_ID;
 
+  console.log("[webhook] Raw Linear payload data", {
+    data: data,
+    changes: payload.changes,
+  });
+
   console.log("[webhook] Linear payload", {
     type: eventType,
     action: eventAction,
