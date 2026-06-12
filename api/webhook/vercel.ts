@@ -80,7 +80,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const linear = new LinearClient({ apiKey: LINEAR_API_KEY });
 
   // Look up the issue by identifier (e.g. "ENG-42")
-  const issueResult = await linear.issueSearch(issueIdentifier, { first: 1 });
+  const issueResult = await linear.issueSearch({ query: issueIdentifier, first: 1 });
   const issue = issueResult.nodes?.[0];
 
   if (!issue) {
