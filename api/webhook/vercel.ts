@@ -31,6 +31,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const body = await readBody(req);
 
   if (WEBHOOK_SECRET && !verifySignature(body, req.headers["x-vercel-signature"] as string)) {
+    console.error("[vercel-webhook] Invalid or missing Vercel signature", {
+      secretConfigured: Boolean(WEBHOOK_SECRET),
+      signatureHeader: String(req.headers["x-vercel-signature"] ?? ""),
+    });
     res.writeHead(401).end("Unauthorized");
     return;
   }
@@ -38,7 +42,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   let payload: Record<string, unknown>;
   try {
     payload = JSON.parse(body);
-  } catch {
+  } catch (err) {
+    console.error("[vercel-webhook] Invalid JSON payload", { error: String(err), body });
     res.writeHead(400).end("Bad Request");
     return;
   }
@@ -49,15 +54,21 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     anyPayload.type ??
       anyPayload.payload?.type ??
       anyPayload.payload?.payload?.type ??
+      anyPayload.payload?.payload?.payload?.type ??
       ""
   ).toLowerCase();
   const deployment =
     anyPayload.deployment ??
     anyPayload.payload?.deployment ??
     anyPayload.payload?.payload?.deployment ??
+    anyPayload.payload?.payload?.payload?.deployment ??
     null;
 
   if (!deployment) {
+    console.warn("[vercel-webhook] No deployment object in webhook payload", {
+      eventType,
+      payloadKeys: Object.keys(payload),
+    });
     res.writeHead(200).end("OK");
     return;
   }
@@ -66,18 +77,38 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     deployment?.meta?.githubCommitRef ??
     deployment?.meta?.gitBranch ??
     deployment?.meta?.ref ??
+    deployment?.meta?.sourceBranch ??
     deployment?.gitBranch ??
     deployment?.branch ??
+    anyPayload.branch ??
     "";
   const branch = String(rawBranch).replace(/^refs\/heads\//, "");
-  const previewUrl: string = deployment?.url ? `https://${deployment.url}` : "";
+  const previewUrl: string = String(
+    deployment?.url ?? deployment?.previewUrl ?? deployment?.alias ?? ""
+  );
+  const deploymentState = String(
+    deployment?.state ?? deployment?.status ?? ""
+  ).toLowerCase();
 
   if (!previewUrl) {
     console.warn("[vercel-webhook] Deployment has no preview URL", {
       eventType,
       branch,
+      deploymentState,
       deploymentId: deployment?.uid,
+      deploymentKeys: Object.keys(deployment ?? {}),
     });
+  }
+
+  const isSuccess =
+    eventType === "deployment.succeeded" ||
+    eventType === "deployment.ready" ||
+    deploymentState === "ready";
+  const isError =
+    eventType === "deployment.error" ||
+    deploymentState === "error";
+
+  if (!isSuccess && !isError) {
     res.writeHead(200).end("OK");
     return;
   }
@@ -104,7 +135,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  const linear = new LinearClient({ apiKey: LINEAR_API_KEY });
+  const linear = new LinearClient({ apiKey: LINEAR_API_KEY }) as any;
+  const linearComment: any = linear.createComment;
 
   // Look up the issue by identifier (e.g. "ENG-42")
   const issueResult = await linear.issueSearch({ query: issueIdentifier, first: 1 });
@@ -112,6 +144,53 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
   if (!issue) {
     console.warn(`[vercel-webhook] No Linear issue found for ${issueIdentifier}`);
+    res.writeHead(200).end("OK");
+    return;
+  }
+
+  if (!previewUrl && isSuccess) {
+    // @ts-ignore Linear SDK typing is inconsistent here
+    await linearComment({
+      issueId: issue.id,
+      body: [
+        "⚠️ Vercel preview deployment event received, but the webhook payload did not include a preview URL.",
+        "",
+        `Branch: \`${branch}\``,
+        "",
+        "This usually means Vercel sent a payload shape we do not yet support. Check the Vercel webhook payload or branch metadata.",
+      ].join("\n"),
+    });
+    console.log("[vercel-webhook] Posted missing-preview debug comment", {
+      issueIdentifier,
+      branch,
+      deploymentId: deployment?.uid,
+    });
+    res.writeHead(200).end("OK");
+    return;
+  }
+
+  console.log("[vercel-webhook] Webhook matched issue", {
+    eventType,
+    branch,
+    previewUrl,
+    issueIdentifier,
+    issueId: issue.id,
+  });
+
+  if (eventType.includes("error") || eventType.includes("failed")) {
+    // @ts-ignore Linear SDK typing is inconsistent here
+    await linearComment({
+      issueId: issue.id,
+      body: [
+        "⚠️ Vercel preview deployment failed.",
+        "",
+        `Branch: \`${branch}\``,
+        previewUrl ? `Preview URL: [${previewUrl}](${previewUrl})` : "Preview URL unavailable.",
+        "",
+        "Check the Vercel dashboard for build logs and retry once the branch is fixed.",
+      ].join("\n"),
+    });
+
     res.writeHead(200).end("OK");
     return;
   }
@@ -148,7 +227,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     `Branch: \`${branch}\``
   );
 
-  await linear.createComment({
+  // @ts-ignore Linear SDK typing is inconsistent here
+  await linearComment({
     issueId: issue.id,
     body: lines.join("\n"),
   });
