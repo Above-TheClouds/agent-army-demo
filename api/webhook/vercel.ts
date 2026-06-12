@@ -43,19 +43,21 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  // Only handle successful preview deployments (not production)
-  const eventType = String((payload as any).type ?? (payload as any).payload?.type ?? "").toLowerCase();
+  // Only handle preview deployment webhooks
+  const anyPayload = payload as any;
+  const eventType = String(
+    anyPayload.type ??
+      anyPayload.payload?.type ??
+      anyPayload.payload?.payload?.type ??
+      ""
+  ).toLowerCase();
   const deployment =
-    (payload as any).deployment ??
-    (payload as any).payload?.deployment ??
+    anyPayload.deployment ??
+    anyPayload.payload?.deployment ??
+    anyPayload.payload?.payload?.deployment ??
     null;
 
-  const isDeploymentEvent =
-    eventType === "deployment.succeeded" ||
-    eventType === "deployment.ready" ||
-    eventType === "deployment";
-
-  if (!isDeploymentEvent || !deployment) {
+  if (!deployment) {
     res.writeHead(200).end("OK");
     return;
   }
