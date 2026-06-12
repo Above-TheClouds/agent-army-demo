@@ -13,7 +13,7 @@
     "deploy": "vercel deploy --prod"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
+    "@anthropic-ai/sdk": "^0.104.1",
     "@linear/sdk": "^27.0.0",
     "@octokit/rest": "^21.0.0",
     "@trigger.dev/sdk": "^4.4.6",
