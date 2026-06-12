@@ -44,16 +44,38 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   }
 
   // Only handle successful preview deployments (not production)
-  if (payload.type !== "deployment.succeeded") {
+  const eventType = String((payload as any).type ?? (payload as any).payload?.type ?? "").toLowerCase();
+  const deployment =
+    (payload as any).deployment ??
+    (payload as any).payload?.deployment ??
+    null;
+
+  const isDeploymentEvent =
+    eventType === "deployment.succeeded" ||
+    eventType === "deployment.ready" ||
+    eventType === "deployment";
+
+  if (!isDeploymentEvent || !deployment) {
     res.writeHead(200).end("OK");
     return;
   }
 
-  const deployment = (payload.payload as any)?.deployment;
-  const branch: string = deployment?.meta?.githubCommitRef ?? "";
+  const rawBranch =
+    deployment?.meta?.githubCommitRef ??
+    deployment?.meta?.gitBranch ??
+    deployment?.meta?.ref ??
+    deployment?.gitBranch ??
+    deployment?.branch ??
+    "";
+  const branch = String(rawBranch).replace(/^refs\/heads\//, "");
   const previewUrl: string = deployment?.url ? `https://${deployment.url}` : "";
 
-  if (!branch || !previewUrl) {
+  if (!previewUrl) {
+    console.warn("[vercel-webhook] Deployment has no preview URL", {
+      eventType,
+      branch,
+      deploymentId: deployment?.uid,
+    });
     res.writeHead(200).end("OK");
     return;
   }

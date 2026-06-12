@@ -131,7 +131,6 @@ Keep it tight. A human will review this plan and approve or redirect before any 
         "",
         "---",
         "*Review this plan. Reply **ship it** to merge after you verify the preview, or reply with feedback to refine it.*",
-        `*[View issue](${issue.url})*`,
       ].join("\n"),
     });
 
@@ -327,7 +326,7 @@ Return only JSON in this exact shape:
           body: [
             `🔗 Draft PR ready for review: [${pr.title}](${pr.html_url})`,
             "",
-            "A preview deployment URL will be posted in a follow-up comment once Vercel finishes.",
+            "If a Vercel preview deployment is configured, the preview URL will be posted in a separate comment.",
           ].join("\n"),
         });
       } catch (err) {
