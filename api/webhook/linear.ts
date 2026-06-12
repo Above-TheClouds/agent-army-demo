@@ -161,14 +161,18 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   // For update events, only trigger when the relevant field *just changed* —
   // otherwise any edit to an already-labelled issue fires the agent again.
   if (eventAction === "update") {
-    const changes = payload.changes as Record<string, { from: unknown; to: unknown }> | undefined;
+    const changes = (payload.changes ?? {}) as Record<string, unknown>;
+    const changeKeys = Object.keys(changes);
 
-    const assigneeJustChanged = changes?.assigneeId?.to === AGENT_USER_ID;
-    // labelIds changed AND the issue now has feature:build → the label was just added
-    const labelJustAdded = hasFeatureLabel && changes?.labelIds !== undefined;
+    console.log("[webhook] Update changes keys", { changeKeys, changes });
+
+    const assigneeJustChanged = AGENT_USER_ID && (changes.assigneeId as any)?.to === AGENT_USER_ID;
+    // Linear may use "labelIds" or "labels" as the key for label changes
+    const labelFieldChanged = changeKeys.some((k) => /label/i.test(k));
+    const labelJustAdded = hasFeatureLabel && labelFieldChanged;
 
     if (!assigneeJustChanged && !labelJustAdded) {
-      console.log("[webhook] Ignoring update: no relevant field changed");
+      console.log("[webhook] Ignoring update: no relevant field changed", { changeKeys });
       res.writeHead(200).end("OK");
       return;
     }
