@@ -2,6 +2,7 @@
   "name": "agent-army-demo",
   "version": "1.0.0",
   "description": "Live demo site for the AI Agent Army workshop — update copy via Linear, watch Claude ship a PR.",
+  "type": "module",
   "private": true,
   "scripts": {
     "dev": "next dev",
