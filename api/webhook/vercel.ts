@@ -227,7 +227,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   lines.push(
     "🚀 **Preview deployment ready**",
     "",
-    `[Preview site](${previewUrl})`,
+    `[Preview site](https://${previewUrl})`,
     "",
     `Branch: \`${branch}\``
   );
