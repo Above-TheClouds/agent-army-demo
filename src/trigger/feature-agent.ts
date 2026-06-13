@@ -140,22 +140,32 @@ export const featureAgent = task({
     // Prompts are stored as text type in Langfuse Prompt Management.
     let planPromptMeta: { name: string; version: number } | null = null;
     let planSystemPrompt = FALLBACK_PLAN_PROMPT;
+    let planModel = "claude-opus-4-7";
+    let planMaxTokens = 2048;
     try {
       const p = await langfuse.getPrompt("feature-agent-plan", undefined, { type: "text" });
       planSystemPrompt = p.compile();
       planPromptMeta = { name: p.name, version: p.version };
-      logger.info("Loaded plan prompt from Langfuse", planPromptMeta);
+      const cfg = p.config as Record<string, unknown> | null;
+      if (typeof cfg?.model === "string") planModel = cfg.model;
+      if (typeof cfg?.max_tokens === "number") planMaxTokens = cfg.max_tokens;
+      logger.info("Loaded plan prompt from Langfuse", { ...planPromptMeta, planModel, planMaxTokens });
     } catch {
       logger.warn("Could not load 'feature-agent-plan' from Langfuse — using fallback");
     }
 
     let patchesPromptMeta: { name: string; version: number } | null = null;
     let patchesSystemPrompt = FALLBACK_PATCHES_PROMPT;
+    let patchesModel = "claude-opus-4-7";
+    let patchesMaxTokens = 4096;
     try {
       const p = await langfuse.getPrompt("feature-agent-patches", undefined, { type: "text" });
       patchesSystemPrompt = p.compile();
       patchesPromptMeta = { name: p.name, version: p.version };
-      logger.info("Loaded patches prompt from Langfuse", patchesPromptMeta);
+      const cfg = p.config as Record<string, unknown> | null;
+      if (typeof cfg?.model === "string") patchesModel = cfg.model;
+      if (typeof cfg?.max_tokens === "number") patchesMaxTokens = cfg.max_tokens;
+      logger.info("Loaded patches prompt from Langfuse", { ...patchesPromptMeta, patchesModel, patchesMaxTokens });
     } catch {
       logger.warn("Could not load 'feature-agent-patches' from Langfuse — using fallback");
     }
@@ -169,14 +179,14 @@ export const featureAgent = task({
 
     const planGeneration = trace.generation({
       name: "plan",
-      model: "claude-opus-4-7",
+      model: planModel,
       input: linearIssue.title,
       metadata: planPromptMeta ?? { promptSource: "fallback" },
     });
 
     const response = await anthropic.messages.create({
-      model: "claude-opus-4-7",
-      max_tokens: 2048,
+      model: planModel,
+      max_tokens: planMaxTokens,
       system: planSystemPrompt,
       messages: [
         {
@@ -233,14 +243,14 @@ Keep it tight. A human will review this plan and approve or redirect before any 
     logger.info("Requesting code changes from Claude...");
     const codeGeneration = trace.generation({
       name: "code-patches",
-      model: "claude-opus-4-7",
+      model: patchesModel,
       input: plan,
       metadata: patchesPromptMeta ?? { promptSource: "fallback" },
     });
 
     const codeResponse = await anthropic.messages.create({
-      model: "claude-opus-4-7",
-      max_tokens: 4096,
+      model: patchesModel,
+      max_tokens: patchesMaxTokens,
       system: patchesSystemPrompt,
       messages: [
         {
