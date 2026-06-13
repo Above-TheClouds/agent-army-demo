@@ -45,13 +45,16 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const eventAction = payload.action as string;
   const data = payload.data as any;
   const assignedToAgent = AGENT_USER_ID && data?.assigneeId === AGENT_USER_ID;
-  const stateIsUnstarted = data?.state?.name === "To Do";
+  // Match any unstarted state that isn't Backlog — covers "Todo", "To Do", etc.
+  const stateIsUnstarted =
+    data?.state?.type === "unstarted" && !/backlog/i.test(data?.state?.name ?? "");
 
   console.log("[webhook] Linear payload", {
     type: eventType,
     action: eventAction,
     identifier: data?.identifier,
     assigneeId: data?.assigneeId,
+    AGENT_USER_ID_set: !!AGENT_USER_ID,
     stateType: data?.state?.type,
     stateName: data?.state?.name,
     assignedToAgent: !!assignedToAgent,
