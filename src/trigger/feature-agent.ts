@@ -142,20 +142,29 @@ Keep it tight. A human will review this plan and approve or redirect before any 
     const codeResponse = await anthropic.messages.create({
       model: "claude-opus-4-7",
       max_tokens: 4096,
-      system: `You are a senior software engineer applying a minimal, surgical change to an existing codebase.
+      system: `You are a senior software engineer applying minimal, surgical changes to an existing codebase.
 You will be given a Linear issue, an implementation plan, and the CURRENT contents of the relevant files.
-Your job is to output a JSON object with a files array containing the exact file paths and the updated file contents.
 
-CRITICAL RULES — you must follow all of these:
-- Treat the current file contents as the single source of truth. Your output must be the current file with ONLY the change described in the issue applied. Preserve every other line exactly as-is.
-- Do NOT rewrite, restructure, or simplify any part of the file that the issue does not mention. If the issue says "rename X to Y", only rename X to Y — touch nothing else.
-- You MUST always include at least one file in the files array. Never return {"files":[]}.
-- For any issue involving copy, text, headlines, or homepage content: update app/page.tsx by finding the exact string and replacing only that string.
-- Return the COMPLETE file contents for each changed file (the full file, not a diff), but with only the minimal change applied.
-- Only return valid JSON, nothing else. No markdown fences, no explanation, just the JSON object.
-- Use Unix-style paths (e.g. "app/page.tsx").
-- Do not touch files unrelated to the issue.
-- NEVER put raw prose or plain text as the content of a .ts or .tsx file. The content field must always be valid TypeScript/JSX source code, exactly as it would appear in the editor. If the change is to a string inside JSX, modify that string inside the surrounding JSX — do not replace the whole file with the string value.`,
+Your job is to output a JSON object describing ONLY what changes — as find/replace patches, not full file contents.
+
+Return this exact shape:
+{
+  "patches": [
+    {
+      "path": "app/page.tsx",
+      "find": "exact string to find, character-for-character as it appears in the file",
+      "replace": "exact replacement string"
+    }
+  ]
+}
+
+Rules:
+- Each patch targets ONE specific string to find and replace. Use multiple patches if multiple strings must change.
+- The "find" value must appear verbatim in the current file. Copy it exactly from the file contents provided — same whitespace, same quotes.
+- Only patch what the issue explicitly asks to change. Do not touch anything else.
+- Never output full file contents. Only output the specific strings that change.
+- Only return valid JSON, nothing else. No markdown fences, no explanation.
+- Use Unix-style paths (e.g. "app/page.tsx").`,
       messages: [
         {
           role: "user",
@@ -170,16 +179,7 @@ Current file contents:
 
 ${formatContext(repoContext)}
 
-Return only JSON in this exact shape (always at least one file):
-{
-  "files": [
-    {
-      "path": "path/to/file.ext",
-      "content": "... complete file contents ..."
-    }
-  ]
-}
-`,
+Return only the patches JSON.`,
         },
       ],
     });
@@ -193,17 +193,29 @@ Return only JSON in this exact shape (always at least one file):
 
     try {
       const json = parseJson(codeOutput);
-      if (Array.isArray(json.files)) {
-        filesToChange = json.files.filter((f: { path: string; content: string }) => {
-          if (/\.(tsx?|jsx?)$/.test(f.path) && !looksLikeCode(f.content)) {
-            logger.error("Rejected file: content is not valid TypeScript/JSX", { path: f.path, preview: f.content.slice(0, 120) });
-            return false;
-          }
-          return true;
-        });
+      const patches: Array<{ path: string; find: string; replace: string }> =
+        Array.isArray(json.patches) ? json.patches : [];
+
+      const byPath = new Map<string, string>();
+      for (const patch of patches) {
+        const base = byPath.get(patch.path) ?? (repoContext[patch.path] || "");
+        if (!base.includes(patch.find)) {
+          logger.error("Patch find-string not found in file", {
+            path: patch.path,
+            find: patch.find.slice(0, 80),
+          });
+          continue;
+        }
+        byPath.set(patch.path, base.replace(patch.find, patch.replace));
+      }
+
+      filesToChange = Array.from(byPath.entries()).map(([path, content]) => ({ path, content }));
+
+      if (filesToChange.length === 0 && patches.length > 0) {
+        logger.error("All patches failed — no files to commit");
       }
     } catch (err) {
-      logger.error("Failed to parse code JSON from Claude", {
+      logger.error("Failed to parse patches JSON from Claude", {
         error: String(err),
         output: codeOutput,
       });
@@ -427,11 +439,6 @@ function formatContext(files: Record<string, string>): string {
     .join("\n\n");
 }
 
-// Returns false if the content looks like raw prose rather than TS/JSX source.
-// A valid TS/JSX file will contain at least one of these patterns.
-function looksLikeCode(content: string): boolean {
-  return /import\s|export\s|export default|function\s|const\s|let\s|var\s|class\s|=>/m.test(content);
-}
 
 function readFileSafe(path: string): string {
   try {
