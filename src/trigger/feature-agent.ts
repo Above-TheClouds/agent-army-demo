@@ -2,6 +2,7 @@ import { task, logger } from "@trigger.dev/sdk/v3";
 import Anthropic from "@anthropic-ai/sdk";
 import { LinearClient } from "@linear/sdk";
 import { Octokit } from "@octokit/rest";
+import { Langfuse } from "langfuse";
 import { readFileSync, readdirSync, statSync } from "fs";
 import { join, relative } from "path";
 
@@ -12,6 +13,11 @@ import { join, relative } from "path";
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const linear = new LinearClient({ apiKey: process.env.LINEAR_API_KEY });
 const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+const langfuse = new Langfuse({
+  publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+  secretKey: process.env.LANGFUSE_SECRET_KEY,
+  baseUrl: process.env.LANGFUSE_HOST ?? "https://cloud.langfuse.com",
+});
 
 // ---------------------------------------------------------------------------
 // Types
@@ -92,6 +98,17 @@ export const featureAgent = task({
 
     const repoContext = await getRepoContext();
 
+    const trace = langfuse.trace({
+      name: "feature-agent",
+      metadata: { issueId: issue.id, identifier: issue.identifier, title: linearIssue.title },
+    });
+
+    const planGeneration = trace.generation({
+      name: "plan",
+      model: "claude-opus-4-7",
+      input: linearIssue.title,
+    });
+
     const response = await anthropic.messages.create({
       model: "claude-opus-4-7",
       max_tokens: 2048,
@@ -128,6 +145,11 @@ Keep it tight. A human will review this plan and approve or redirect before any 
     const plan =
       response.content[0].type === "text" ? response.content[0].text : "";
 
+    planGeneration.end({
+      output: plan,
+      usage: { input: response.usage.input_tokens, output: response.usage.output_tokens },
+    });
+
     logger.info("Claude responded", {
       inputTokens: response.usage.input_tokens,
       outputTokens: response.usage.output_tokens,
@@ -150,6 +172,7 @@ Keep it tight. A human will review this plan and approve or redirect before any 
 
     // ── 3.1 Ask Claude to generate code changes for the issue ─────────────────
     logger.info("Requesting code changes from Claude...");
+    const codeGeneration = trace.generation({ name: "code-patches", model: "claude-opus-4-7", input: plan });
 
     const codeResponse = await anthropic.messages.create({
       model: "claude-opus-4-7",
@@ -195,6 +218,12 @@ Return only the patches JSON.`,
         },
       ],
     });
+
+    codeGeneration.end({
+      output: codeResponse.content[0].type === "text" ? codeResponse.content[0].text : "",
+      usage: { input: codeResponse.usage.input_tokens, output: codeResponse.usage.output_tokens },
+    });
+    await langfuse.flushAsync();
 
     const codeOutput =
       codeResponse.content[0].type === "text"

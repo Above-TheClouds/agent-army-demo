@@ -1,4 +1,5 @@
 import BugButton from "./BugButton";
+import ArchDiagram from "./ArchDiagram";
 
 export default function Home() {
   return (
@@ -103,15 +104,15 @@ export default function Home() {
           fontFamily: "Georgia, serif", fontSize: "clamp(28px, 4vw, 48px)",
           fontWeight: 400, marginBottom: "64px", lineHeight: 1.15, color: "var(--text)",
         }}>
-          From Linear issue to merged PR — <span style={{ color: "var(--gold)", fontStyle: "italic" }}>no human in the loop.</span>
+          From Linear issue to merged PR. <span style={{ color: "var(--gold)", fontStyle: "italic" }}>No human in the loop.</span>
         </h2>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "24px" }}>
           {[
-            { n: "01", title: "Label or assign", body: "Add feature:build to a Linear issue, or assign it to your AI Agent user." },
-            { n: "02", title: "Claude plans", body: "The agent reads the issue, writes an implementation plan, and posts it as a Linear comment." },
-            { n: "03", title: "Draft PR opens", body: "A branch is created and a draft PR is opened on GitHub — ready for your review." },
-            { n: "04", title: "Preview deploys", body: "Vercel deploys a preview. The URL lands as a Linear comment before you refresh." },
+            { n: "01", title: "Drop it in To Do", body: "Assign a Linear card to the AI Agent and move it to To Do. The agent picks it up instantly." },
+            { n: "02", title: "Claude plans and ships", body: "The agent moves the card to In Progress, reads the repo, writes a plan, and opens a PR. All traced in Langfuse." },
+            { n: "03", title: "Preview deploys", body: "Vercel deploys a preview branch. The URL lands as a Linear comment before you refresh." },
+            { n: "04", title: "Ship it", body: "Reply ship it in Linear. The PR merges, production deploys, and the card moves to Done." },
           ].map(({ n, title, body }) => (
             <div key={n} style={{
               background: "var(--card)", border: "1px solid var(--border)",
@@ -132,6 +133,9 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── Architecture diagram ── */}
+      <ArchDiagram />
+
       {/* ── Stack ── */}
       <section style={{
         padding: "80px 48px", borderTop: "1px solid var(--border)",
@@ -149,7 +153,7 @@ export default function Home() {
           <div style={{
             display: "flex", flexWrap: "wrap", gap: "12px", justifyContent: "center",
           }}>
-            {["Anthropic Claude", "Trigger.dev", "Linear SDK", "GitHub Octokit", "Vercel", "Next.js"].map((tool) => (
+            {["Anthropic Claude", "Trigger.dev", "Linear SDK", "GitHub Octokit", "Vercel", "Next.js", "Sentry", "Langfuse"].map((tool) => (
               <span key={tool} style={{
                 padding: "8px 20px", border: "1px solid var(--border)",
                 borderRadius: "999px", fontSize: "13px", color: "var(--muted)",
