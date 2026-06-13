@@ -80,28 +80,52 @@ export const contentAgent = task({
       metadata: { issueId: issue.id, identifier: issue.identifier, title: linearIssue.title },
     });
 
-    // Generate article
-    const generation = trace.generation({ name: "article", model: "claude-sonnet-4-6", input: brief });
+    // ── Call 1: metadata only (small JSON, no code inside) ───────────────────
+    const metaGeneration = trace.generation({ name: "article-meta", model: "claude-sonnet-4-6", input: brief });
 
-    const response = await anthropic.messages.create({
+    const metaResponse = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 3000,
-      system: `You are a technical writer generating an article for the AI Agent Army knowledge base.
-The site uses a dark theme with CSS variables: var(--bg), var(--text), var(--muted), var(--gold), var(--border), var(--card).
-Font: Georgia serif for headings, system-ui for body. No Tailwind.
-
-Generate a complete, standalone Next.js page (TSX, no imports needed except React types) for the article.
-The page must include the nav bar and match the site's design exactly.
-
-Return a JSON object with this exact shape:
+      max_tokens: 256,
+      system: `Return a JSON object with exactly these three fields:
 {
   "slug": "url-safe-slug-max-60-chars",
   "title": "Article title",
-  "excerpt": "One sentence summary, max 120 chars",
-  "pageContent": "complete TSX string for app/knowledge/[slug]/page.tsx"
+  "excerpt": "One sentence summary, max 120 chars"
 }
+Only return valid JSON. No markdown fences. No other text.`,
+      messages: [{ role: "user", content: `Title: ${issue.title}\n\nBrief:\n${brief}` }],
+    });
 
-The pageContent must be a complete default export function. Use this template:
+    const metaRaw = metaResponse.content[0].type === "text" ? metaResponse.content[0].text : "";
+    metaGeneration.end({ output: metaRaw, usage: { input: metaResponse.usage.input_tokens, output: metaResponse.usage.output_tokens } });
+
+    let articleSlug = slugify(issue.title);
+    let articleTitle = issue.title;
+    let articleExcerpt = "";
+
+    try {
+      const first = metaRaw.indexOf("{");
+      const last = metaRaw.lastIndexOf("}");
+      const meta = JSON.parse(metaRaw.slice(first, last + 1));
+      articleSlug = meta.slug || articleSlug;
+      articleTitle = meta.title || articleTitle;
+      articleExcerpt = meta.excerpt || "";
+    } catch {
+      logger.warn("Failed to parse metadata JSON — using fallback slug", { metaRaw });
+    }
+
+    // ── Call 2: TSX page content as plain text (no JSON escaping issues) ──────
+    const contentGeneration = trace.generation({ name: "article-content", model: "claude-sonnet-4-6", input: articleTitle });
+
+    const contentResponse = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 3000,
+      system: `You are a technical writer generating a Next.js page for the AI Agent Army knowledge base.
+The site uses CSS variables: var(--bg) #07080c, var(--text) #e8e4dc, var(--muted) rgba(232,228,220,0.55), var(--gold) #ffd700, var(--border) rgba(255,215,0,0.14). No Tailwind.
+
+Return ONLY the raw TSX file content — no markdown fences, no explanation, just the code starting with "export default function Article()".
+
+Use this exact structure:
 export default function Article() {
   return (
     <main style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)" }}>
@@ -115,53 +139,23 @@ export default function Article() {
       <article style={{ padding: "140px 48px 120px", maxWidth: "740px", margin: "0 auto" }}>
         <a href="/knowledge" style={{ fontSize: "12px", color: "var(--muted)", textDecoration: "none", letterSpacing: "0.1em", display: "block", marginBottom: "48px" }}>← Knowledge base</a>
         <p style={{ fontSize: "11px", color: "var(--gold)", letterSpacing: "0.24em", textTransform: "uppercase", marginBottom: "16px", fontWeight: 700 }}>Content Pod</p>
-        <h1 style={{ fontFamily: "Georgia, serif", fontSize: "clamp(28px, 4vw, 48px)", fontWeight: 400, lineHeight: 1.15, marginBottom: "16px", color: "var(--text)" }}>ARTICLE_TITLE</h1>
-        <p style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "56px" }}>ARTICLE_DATE</p>
-        [article body paragraphs here using p, h2, h3 tags with inline styles matching the design]
+        <h1 style={{ fontFamily: "Georgia, serif", fontSize: "clamp(28px, 4vw, 48px)", fontWeight: 400, lineHeight: 1.15, marginBottom: "16px", color: "var(--text)" }}>${articleTitle}</h1>
+        <p style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "56px" }}>${today()}</p>
+        [write 4-6 paragraphs of article body using p, h2, h3 tags with matching inline styles]
       </article>
     </main>
   );
-}
-
-Only return valid JSON. No markdown fences.`,
-      messages: [
-        {
-          role: "user",
-          content: `Write an article based on this brief:
-
-Title: ${issue.title}
-
-Brief:
-${brief}
-
-Today's date: ${today()}`,
-        },
-      ],
+}`,
+      messages: [{ role: "user", content: `Write the article body for: "${articleTitle}"\n\nBrief:\n${brief}` }],
     });
 
-    const raw = response.content[0].type === "text" ? response.content[0].text : "";
-    generation.end({ output: raw, usage: { input: response.usage.input_tokens, output: response.usage.output_tokens } });
+    const pageContent = contentResponse.content[0].type === "text" ? contentResponse.content[0].text.trim() : "";
+    contentGeneration.end({ output: pageContent.slice(0, 200), usage: { input: contentResponse.usage.input_tokens, output: contentResponse.usage.output_tokens } });
     await langfuse.flushAsync();
 
-    let articleSlug = "";
-    let articleTitle = issue.title;
-    let articleExcerpt = "";
-    let pageContent = "";
-
-    try {
-      const parsed = JSON.parse(raw);
-      articleSlug = parsed.slug || slugify(issue.title);
-      articleTitle = parsed.title || issue.title;
-      articleExcerpt = parsed.excerpt || "";
-      pageContent = parsed.pageContent || "";
-    } catch {
-      logger.error("Failed to parse content agent JSON", { raw: raw.slice(0, 200) });
-      await linear.createComment({ issueId: issue.id, body: "⚠️ Content Agent failed to generate article JSON. Check Trigger.dev logs." });
-      return { success: false };
-    }
-
     if (!pageContent || !articleSlug) {
-      logger.error("Missing slug or pageContent in content agent output");
+      logger.error("Missing slug or pageContent", { articleSlug, hasContent: !!pageContent });
+      await linear.createComment({ issueId: issue.id, body: "⚠️ Content Agent failed to generate article content. Check Trigger.dev logs." });
       return { success: false };
     }
 
