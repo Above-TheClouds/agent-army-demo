@@ -13,7 +13,7 @@ export default function ArchDiagram() {
     langfuse:   { x: 700,  y: 260, label: "Langfuse",     sub: "observability",     color: "#3b82f6" },
     github:     { x: 165,  y: 370, label: "GitHub",       sub: "branch + PR",       color: "#666" },
     vercel:     { x: 400,  y: 370, label: "Vercel",       sub: "preview + prod",    color: "#666" },
-    linear_out: { x: 635,  y: 370, label: "Linear",       sub: "done + URL",        color: "#c9a227" },
+    linear_out: { x: 635,  y: 370, label: "Linear",       sub: "preview + done",    color: "#c9a227" },
   };
 
   const card = "#0d0e14";
