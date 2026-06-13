@@ -100,6 +100,8 @@ export const featureAgent = task({
 
     const trace = langfuse.trace({
       name: "feature-agent",
+      sessionId: issue.identifier,
+      userId: issue.identifier,
       metadata: { issueId: issue.id, identifier: issue.identifier, title: linearIssue.title },
     });
 
