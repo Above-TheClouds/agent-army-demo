@@ -98,7 +98,7 @@ export default function Home() {
           fontSize: "11px", fontWeight: 700, color: "var(--gold)",
           letterSpacing: "0.24em", textTransform: "uppercase", marginBottom: "16px",
         }}>
-          The loop
+          The loop NEW!
         </p>
         <h2 style={{
           fontFamily: "Georgia, serif", fontSize: "clamp(28px, 4vw, 48px)",
