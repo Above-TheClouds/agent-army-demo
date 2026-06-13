@@ -17,7 +17,7 @@ export default function Home() {
           AI Agent Army
         </span>
         <span style={{ fontSize: "11px", color: "var(--muted)", letterSpacing: "0.18em", textTransform: "uppercase" }}>
-          WeLoveFounders
+          WeReallyLoveFounders
         </span>
       </nav>
 
@@ -38,7 +38,7 @@ export default function Home() {
           letterSpacing: "0.24em", textTransform: "uppercase",
           marginBottom: "28px", opacity: 0.7,
         }}>
-          Live Demo · WeLoveFounders Expert Talk
+          Live Demo · WeReallyLoveFounders Expert Talk
         </p>
 
         <h1 style={{

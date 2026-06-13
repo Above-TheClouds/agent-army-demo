@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AI Agent Army — WeLoveFounders",
+  title: "AI Agent Army — WeReallyLoveFounders",
   description: "Ship features while you sleep. A live demo of autonomous AI agents wired to Linear, GitHub, and Vercel.",
 };
 
