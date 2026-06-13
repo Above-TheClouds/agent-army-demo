@@ -123,10 +123,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       });
 
       if (!pr) {
-        await linearClient.createComment({
-          issueId: issue.id,
-          body: `⚠️ Could not find an open PR for ${issueIdentifier}. Make sure the agent has finished and the PR is open (not merged or closed).`,
-        });
+        console.warn("[webhook] No open PR found for ship-it command", { issueIdentifier, prefix });
         res.writeHead(200).end("OK");
         return;
       }
