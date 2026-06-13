@@ -118,13 +118,13 @@ export default function Home() {
           fontFamily: "Georgia, serif", fontSize: "clamp(28px, 4vw, 48px)",
           fontWeight: 400, marginBottom: "64px", lineHeight: 1.15, color: "var(--text)",
         }}>
-          From Linear issue to merged PR. <span style={{ color: "var(--gold)", fontStyle: "italic" }}>No human in the loop.</span>
+          One issue. The right agent. <span style={{ color: "var(--gold)", fontStyle: "italic" }}>No human in the loop.</span>
         </h2>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "24px" }}>
           {[
-            { n: "01", title: "Drop it in To Do", body: "Assign a Linear card to the AI Agent and move it to To Do. The agent picks it up instantly." },
-            { n: "02", title: "Claude plans and ships", body: "The agent moves the card to In Progress, reads the repo, writes a plan, and opens a PR. Prompts and model are live-editable in Langfuse. All traced." },
+            { n: "01", title: "Drop it in To Do", body: "Assign a Linear card to the AI Agent and move it to To Do. The orchestrator picks it up instantly." },
+            { n: "02", title: "Orchestrator routes", body: "Claude reads the issue and routes it. Code changes go to the Feature Agent. Article briefs go to the Content Agent. Every PR gets a Verifier review." },
             { n: "03", title: "Preview deploys", body: "Vercel deploys the branch. The preview URL lands as a Linear comment and the card moves to In Preview." },
             { n: "04", title: "Ship it", body: "Reply ship it in Linear. The PR merges, production deploys, and the card moves to Done." },
           ].map(({ n, title, body }) => (

@@ -1,6 +1,6 @@
 # agent-army-demo
 
-> Live demo site for the AI Agent Army workshop — drop a card in Linear and watch Claude ship a PR, deploy to Vercel, and close the issue automatically.
+> Live demo site for the AI Agent Army workshop — drop a card in Linear and watch a fleet of specialised agents plan, code, verify, write, and ship — without a single human in the loop.
 
 Built for the **WeLoveFounders Expert Talk — Building an AI Agent Army** by [Above The Clouds](https://abovetheclouds.io).
 
@@ -21,28 +21,47 @@ flowchart TD
         W3[/api/webhook/vercel]
     end
 
-    B -->|trigger task| C
+    B -->|trigger| ORC
 
-    subgraph Trigger.dev
-        C[feature-agent task]
-        C -->|read files| GH1[GitHub API]
-        C -->|plan + patches| CL[Anthropic Claude]
+    subgraph Trigger.dev — Agent Army
+        ORC[orchestrator\nroutes by intent]
+        ORC -->|feature request| FA[feature-agent\nplan + patches + PR]
+        ORC -->|article brief| CA[content-agent\nwrite + publish to knowledge]
+        FA -->|spawns after PR| FV[feature-verifier\nreviews PR diff]
+        FA -->|plan + patches| CL[Anthropic Claude]
+        CA -->|article| CL
+        FV -->|review| CL
         CL -.->|trace| LF[Langfuse]
-        C -->|create branch + PR| GH2[GitHub API]
+        FA -->|create branch + PR| GH[GitHub API]
+        CA -->|create branch + PR| GH
     end
 
-    C -->|move to In Progress| A
-    GH2 -->|PR merged| GH3[GitHub — merge to main]
-    GH3 -->|deploy| V[Vercel Production]
+    FA -->|move to In Progress| A
+    FV -->|LGTM or needs changes| A
+    GH -->|PR merged| GH2[GitHub — merge to main]
+    GH2 -->|deploy| V[Vercel Production]
     V -->|deployment webhook| W3
-    W3 -->|production URL comment + move to Done| A
+    W3 -->|production URL + move to Done| A
 
     subgraph Preview Loop
-        GH2 -->|open PR branch| VP[Vercel Preview]
+        GH -->|open PR branch| VP[Vercel Preview]
         VP -->|deployment webhook| W3
-        W3 -->|preview URL comment + move to In Preview| A
+        W3 -->|preview URL + move to In Preview| A
     end
 ```
+
+---
+
+## Agent pods
+
+| Agent | Pod | Role |
+|---|---|---|
+| **orchestrator** | All | Receives every Linear webhook, classifies intent with Claude, dispatches to the right agent |
+| **feature-agent** | Product | Reads the repo, generates a plan, produces code patches, opens a PR |
+| **feature-verifier** | Product | Spawned after every PR — reviews the diff and posts LGTM / NEEDS CHANGES to Linear |
+| **content-agent** | Content | Reads a content brief, writes a full article with Claude, opens a PR to `/knowledge` |
+
+The orchestrator uses `claude-haiku` to classify each issue as a feature request or content task based on the title and description — no labels or manual routing needed. If `LINEAR_CONTENT_TEAM_ID` is set, team-based routing takes priority.
 
 ---
 
@@ -50,14 +69,23 @@ flowchart TD
 
 ### Feature flow
 1. Assign a card to the **AI Agent** user and drop it in **To Do**
-2. Agent moves it to **In Progress**, reads the repo, generates a plan, opens a PR
-3. Vercel deploys the preview branch — URL appears as a Linear comment, card moves to **In Preview**
-4. Reply **ship it** → PR merges → production deploys → Linear comment with live URL, card moves to **Done**
+2. Orchestrator classifies → routes to **feature-agent**
+3. Feature agent moves card to **In Progress**, reads the repo, generates a plan, opens a PR
+4. Feature verifier reviews the PR diff and posts a code review to Linear
+5. Vercel deploys the preview branch — URL appears as a Linear comment, card moves to **In Preview**
+6. Reply **ship it** → PR merges → production deploys → Linear comment with live URL, card moves to **Done**
+
+### Content flow
+1. Assign a card with an article brief to the **AI Agent** user and drop it in **To Do**
+2. Orchestrator classifies → routes to **content-agent**
+3. Content agent writes the article, opens a PR adding a page to `/knowledge`
+4. Vercel deploys a preview — review the article at the preview URL
+5. Reply **ship it** → article publishes to `/knowledge`
 
 ### Bug flow
 1. Click **Trigger bug →** on the homepage
 2. Sentry captures the error → fires webhook → Linear card created, assigned to agent
-3. Same agent loop: plan → PR → preview → ship it → production
+3. Orchestrator routes to **feature-agent** → same loop: plan → PR → preview → ship it → production
 
 ---
 
@@ -209,15 +237,25 @@ Each Langfuse trace will include `promptName` and `promptVersion` in the generat
 ```
 agent-army-demo/
 ├── api/webhook/
-│   ├── linear.ts           # Linear webhook → Trigger.dev
-│   ├── vercel.ts           # Vercel deployment → Linear comment
-│   └── sentry.ts           # Sentry issue → Linear card
+│   ├── linear.ts              # Linear webhook → orchestrator
+│   ├── vercel.ts              # Vercel deployment → Linear state + comment
+│   └── sentry.ts              # Sentry error → Linear card
 ├── app/
-│   ├── page.tsx            # Homepage — all demo copy lives here
-│   ├── BugButton.tsx       # Client component — triggers demo error
-│   └── globals.css         # Design tokens (CSS variables)
+│   ├── page.tsx               # Homepage
+│   ├── agents/page.tsx        # Agent roster (/agents)
+│   ├── knowledge/
+│   │   ├── page.tsx           # Knowledge base index (/knowledge)
+│   │   ├── [slug]/page.tsx    # Per-article pages (generated by content-agent)
+│   │   └── _articles.ts       # Article manifest (patched by content-agent)
+│   ├── BugButton.tsx          # Client component — triggers demo Sentry error
+│   └── globals.css            # Design tokens (CSS variables)
 ├── src/trigger/
-│   └── feature-agent.ts    # Trigger.dev task: issue → Claude → PR
+│   ├── orchestrator.ts        # Routes issues to the right agent by intent
+│   ├── feature-agent.ts       # Plan + code patches + PR
+│   ├── feature-verifier.ts    # PR diff review → Linear comment
+│   └── content-agent.ts       # Article generation → /knowledge PR
+├── .github/workflows/
+│   └── ci.yml                 # TypeScript check on every PR
 ├── CLAUDE.md
 ├── DESIGN.md
 └── .env.example
