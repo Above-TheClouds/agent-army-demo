@@ -319,14 +319,14 @@ Return only the patches JSON.`,
           });
         }
 
-        // Open a draft PR
+        // Open a PR (not draft so it can be merged via the "ship it" command)
         const { data: pr } = await octokit.pulls.create({
           owner,
           repo,
-          title: `[DRAFT] ${issue.identifier}: ${linearIssue.title}`,
+          title: `${issue.identifier}: ${linearIssue.title}`,
           head: branchName,
           base: process.env.GITHUB_DEFAULT_BRANCH ?? "main",
-          draft: true,
+          draft: false,
           body: [
             `## ${issue.identifier}: ${linearIssue.title}`,
             "",
