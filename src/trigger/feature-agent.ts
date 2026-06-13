@@ -7,6 +7,43 @@ import { readFileSync, readdirSync, statSync } from "fs";
 import { join, relative } from "path";
 
 // ---------------------------------------------------------------------------
+// Fallback prompts — used when Langfuse is unreachable or prompts don't exist yet.
+// Create matching prompts in Langfuse Prompt Management to edit them without redeploying.
+// ---------------------------------------------------------------------------
+
+const FALLBACK_PLAN_PROMPT = `You are a senior software engineer reviewing a Linear issue in a real Next.js repository.
+Use the exact current code from the repo context below.
+If the issue involves copy or homepage text, update app/page.tsx directly.
+Do not produce generic product requirements.
+Be concrete, concise, and specific to this codebase.
+Avoid using dashes (-) in the text you generate.
+Do not write code — write a plan that will be reviewed by a human before any code is written.`;
+
+const FALLBACK_PATCHES_PROMPT = `You are a senior software engineer applying minimal, surgical changes to an existing codebase.
+You will be given a Linear issue, an implementation plan, and the CURRENT contents of the relevant files.
+
+Your job is to output a JSON object describing ONLY what changes — as find/replace patches, not full file contents.
+
+Return this exact shape:
+{
+  "patches": [
+    {
+      "path": "app/page.tsx",
+      "find": "exact string to find, character-for-character as it appears in the file",
+      "replace": "exact replacement string"
+    }
+  ]
+}
+
+Rules:
+- Each patch targets ONE specific string to find and replace. Use multiple patches if multiple strings must change.
+- The "find" value must appear verbatim in the current file. Copy it exactly from the file contents provided — same whitespace, same quotes.
+- Only patch what the issue explicitly asks to change. Do not touch anything else.
+- Never output full file contents. Only output the specific strings that change.
+- Only return valid JSON, nothing else. No markdown fences, no explanation.
+- Use Unix-style paths (e.g. "app/page.tsx").`;
+
+// ---------------------------------------------------------------------------
 // Clients — initialised once per worker, reused across runs
 // ---------------------------------------------------------------------------
 
@@ -98,6 +135,30 @@ export const featureAgent = task({
 
     const repoContext = await getRepoContext();
 
+    // Fetch prompts from Langfuse — fall back to constants if unavailable.
+    // Prompts are stored as text type in Langfuse Prompt Management.
+    let planPromptMeta: { name: string; version: number } | null = null;
+    let planSystemPrompt = FALLBACK_PLAN_PROMPT;
+    try {
+      const p = await langfuse.getPrompt("feature-agent-plan", undefined, { type: "text" });
+      planSystemPrompt = p.compile();
+      planPromptMeta = { name: p.name, version: p.version };
+      logger.info("Loaded plan prompt from Langfuse", planPromptMeta);
+    } catch {
+      logger.warn("Could not load 'feature-agent-plan' from Langfuse — using fallback");
+    }
+
+    let patchesPromptMeta: { name: string; version: number } | null = null;
+    let patchesSystemPrompt = FALLBACK_PATCHES_PROMPT;
+    try {
+      const p = await langfuse.getPrompt("feature-agent-patches", undefined, { type: "text" });
+      patchesSystemPrompt = p.compile();
+      patchesPromptMeta = { name: p.name, version: p.version };
+      logger.info("Loaded patches prompt from Langfuse", patchesPromptMeta);
+    } catch {
+      logger.warn("Could not load 'feature-agent-patches' from Langfuse — using fallback");
+    }
+
     const trace = langfuse.trace({
       name: "feature-agent",
       sessionId: issue.identifier,
@@ -109,18 +170,13 @@ export const featureAgent = task({
       name: "plan",
       model: "claude-opus-4-7",
       input: linearIssue.title,
+      metadata: planPromptMeta ?? { promptSource: "fallback" },
     });
 
     const response = await anthropic.messages.create({
       model: "claude-opus-4-7",
       max_tokens: 2048,
-      system: `You are a senior software engineer reviewing a Linear issue in a real Next.js repository.
-Use the exact current code from the repo context below.
-If the issue involves copy or homepage text, update app/page.tsx directly.
-Do not produce generic product requirements.
-Be concrete, concise, and specific to this codebase.
-Avoid using dashes (-) in the text you generate.
-Do not write code — write a plan that will be reviewed by a human before any code is written.`,
+      system: planSystemPrompt,
       messages: [
         {
           role: "user",
@@ -174,34 +230,17 @@ Keep it tight. A human will review this plan and approve or redirect before any 
 
     // ── 3.1 Ask Claude to generate code changes for the issue ─────────────────
     logger.info("Requesting code changes from Claude...");
-    const codeGeneration = trace.generation({ name: "code-patches", model: "claude-opus-4-7", input: plan });
+    const codeGeneration = trace.generation({
+      name: "code-patches",
+      model: "claude-opus-4-7",
+      input: plan,
+      metadata: patchesPromptMeta ?? { promptSource: "fallback" },
+    });
 
     const codeResponse = await anthropic.messages.create({
       model: "claude-opus-4-7",
       max_tokens: 4096,
-      system: `You are a senior software engineer applying minimal, surgical changes to an existing codebase.
-You will be given a Linear issue, an implementation plan, and the CURRENT contents of the relevant files.
-
-Your job is to output a JSON object describing ONLY what changes — as find/replace patches, not full file contents.
-
-Return this exact shape:
-{
-  "patches": [
-    {
-      "path": "app/page.tsx",
-      "find": "exact string to find, character-for-character as it appears in the file",
-      "replace": "exact replacement string"
-    }
-  ]
-}
-
-Rules:
-- Each patch targets ONE specific string to find and replace. Use multiple patches if multiple strings must change.
-- The "find" value must appear verbatim in the current file. Copy it exactly from the file contents provided — same whitespace, same quotes.
-- Only patch what the issue explicitly asks to change. Do not touch anything else.
-- Never output full file contents. Only output the specific strings that change.
-- Only return valid JSON, nothing else. No markdown fences, no explanation.
-- Use Unix-style paths (e.g. "app/page.tsx").`,
+      system: patchesSystemPrompt,
       messages: [
         {
           role: "user",

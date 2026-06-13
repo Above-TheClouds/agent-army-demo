@@ -126,6 +126,60 @@ npm run trigger:deploy   # Agent task → Trigger.dev cloud
 
 ---
 
+## Langfuse prompt management
+
+The agent fetches its system prompts from Langfuse at runtime, so you can tune agent behavior without redeploying. If a prompt is missing or unreachable, the agent falls back to the defaults hardcoded in `src/trigger/feature-agent.ts`.
+
+### Create the prompts
+
+Go to **Langfuse → Prompt Management → New Prompt** and create two **text** prompts (not chat):
+
+**Name: `feature-agent-plan`**
+
+```
+You are a senior software engineer reviewing a Linear issue in a real Next.js repository.
+Use the exact current code from the repo context below.
+If the issue involves copy or homepage text, update app/page.tsx directly.
+Do not produce generic product requirements.
+Be concrete, concise, and specific to this codebase.
+Avoid using dashes (-) in the text you generate.
+Do not write code — write a plan that will be reviewed by a human before any code is written.
+```
+
+**Name: `feature-agent-patches`**
+
+```
+You are a senior software engineer applying minimal, surgical changes to an existing codebase.
+You will be given a Linear issue, an implementation plan, and the CURRENT contents of the relevant files.
+
+Your job is to output a JSON object describing ONLY what changes — as find/replace patches, not full file contents.
+
+Return this exact shape:
+{
+  "patches": [
+    {
+      "path": "app/page.tsx",
+      "find": "exact string to find, character-for-character as it appears in the file",
+      "replace": "exact replacement string"
+    }
+  ]
+}
+
+Rules:
+- Each patch targets ONE specific string to find and replace. Use multiple patches if multiple strings must change.
+- The "find" value must appear verbatim in the current file. Copy it exactly from the file contents provided — same whitespace, same quotes.
+- Only patch what the issue explicitly asks to change. Do not touch anything else.
+- Never output full file contents. Only output the specific strings that change.
+- Only return valid JSON, nothing else. No markdown fences, no explanation.
+- Use Unix-style paths (e.g. "app/page.tsx").
+```
+
+Once created, publish each prompt (set to **Production** label). The agent will pick up any new version automatically on the next run — no redeployment needed.
+
+Each Langfuse trace will include `promptName` and `promptVersion` in the generation metadata so you can see exactly which version produced each output.
+
+---
+
 ## Project structure
 
 ```
