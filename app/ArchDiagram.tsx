@@ -65,9 +65,9 @@ export default function ArchDiagram() {
         <path d={`M${n.webhook.x - 30} ${n.webhook.y + 21} L${n.trigger.x + 20} ${n.trigger.y - 21}`}
           fill="none" stroke="#555" strokeWidth={1} markerEnd="url(#arr-muted)" />
 
-        {/* Webhook → Claude */}
-        <path d={`M${n.webhook.x + 30} ${n.webhook.y + 21} L${n.claude.x - 20} ${n.claude.y - 21}`}
-          fill="none" stroke="#555" strokeWidth={1} markerEnd="url(#arr-muted)" />
+        {/* Trigger.dev → Claude */}
+        <line x1={n.trigger.x + BW / 2} y1={n.trigger.y} x2={n.claude.x - BW / 2} y2={n.claude.y}
+          stroke="#555" strokeWidth={1} markerEnd="url(#arr-muted)" />
 
         {/* Claude → Langfuse (dashed) */}
         <line x1={n.claude.x + BW / 2} y1={n.claude.y} x2={n.langfuse.x - BW / 2} y2={n.langfuse.y}
