@@ -158,29 +158,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  // For update events, only trigger when the relevant field *just changed* —
-  // otherwise any edit to an already-labelled issue fires the agent again.
-  if (eventAction === "update") {
-    const changes = (payload.changes ?? {}) as Record<string, unknown>;
-    const changeKeys = Object.keys(changes);
-
-    console.log("[webhook] Update changes keys", { changeKeys, changes });
-
-    const assigneeJustChanged = AGENT_USER_ID && (changes.assigneeId as any)?.to === AGENT_USER_ID;
-    // Linear may use "labelIds" or "labels" as the key for label changes
-    const labelFieldChanged = changeKeys.some((k) => /label/i.test(k));
-    const labelJustAdded = hasFeatureLabel && labelFieldChanged;
-
-    if (!assigneeJustChanged && !labelJustAdded) {
-      console.log("[webhook] Ignoring update: no relevant field changed", { changeKeys });
-      res.writeHead(200).end("OK");
-      return;
-    }
-  }
-
   const trigger = assignedToAgent ? "assigned-to-agent" : "label:feature:build";
 
-  await tasks.trigger<typeof featureAgent>("feature-agent", payload as any);
+  // Idempotency key: same issue + same updatedAt = same logical event, even if
+  // Linear delivers the webhook more than once (at-least-once delivery).
+  const idempotencyKey = `${data?.identifier}-${data?.updatedAt ?? data?.createdAt}`;
+
+  await tasks.trigger<typeof featureAgent>("feature-agent", payload as any, { idempotencyKey });
 
   console.log(`[webhook] Triggered feature-agent for ${data?.identifier} via ${trigger}`);
 
