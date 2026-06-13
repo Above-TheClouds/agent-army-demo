@@ -43,7 +43,7 @@ export default function Home() {
           fontSize: "clamp(40px, 7vw, 80px)", fontWeight: 400,
           lineHeight: 1.05, marginBottom: "4px", color: "var(--text)",
         }}>
-          Design & Build your
+          Build your
         </h1>
         <h1 style={{
           fontFamily: "Georgia, 'Times New Roman', serif",
