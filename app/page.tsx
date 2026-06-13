@@ -40,6 +40,13 @@ export default function Home() {
 
         <h1 style={{
           fontFamily: "Georgia, 'Times New Roman', serif",
+          fontSize: "clamp(40px, 7vw, 80px)", fontWeight: 400, fontStyle: "italic",
+          lineHeight: 1.05, marginBottom: "8px", color: "var(--gold)",
+        }}>
+          Be happy!
+        </h1>
+        <h1 style={{
+          fontFamily: "Georgia, 'Times New Roman', serif",
           fontSize: "clamp(40px, 7vw, 80px)", fontWeight: 400,
           lineHeight: 1.05, marginBottom: "4px", color: "var(--text)",
         }}>
