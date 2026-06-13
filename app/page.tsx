@@ -16,7 +16,10 @@ export default function Home() {
         <span style={{ fontFamily: "Georgia, serif", fontSize: "15px", color: "var(--gold)", fontStyle: "italic" }}>
           AI Agent Army
         </span>
-        <svg width="120" height="20" viewBox="0 0 254 44" fill="#ffffff" xmlns="http://www.w3.org/2000/svg" aria-label="We Love Founders">
+        <div style={{ display: "flex", alignItems: "center", gap: "32px" }}>
+          <a href="/agents" style={{ fontSize: "12px", color: "var(--muted)", letterSpacing: "0.1em", textDecoration: "none" }}>Agents</a>
+          <a href="/knowledge" style={{ fontSize: "12px", color: "var(--muted)", letterSpacing: "0.1em", textDecoration: "none" }}>Knowledge</a>
+          <svg width="120" height="20" viewBox="0 0 254 44" fill="#ffffff" xmlns="http://www.w3.org/2000/svg" aria-label="We Love Founders">
           <path d="M92.6445 14.762L94.0879 7.48674H90.9241L92.3165 0.211426H80.31L78.9249 7.48674H74.4125L72.9691 14.762H68.7628L70.2354 7.48674H65.4824L66.8675 0.211426H54.8683L53.4832 7.48674H50.3559L48.8833 14.762H51.5733L50.1882 22.0374H56.4429L55.0578 29.3127H62.7997L61.4146 36.588H68.1505L66.7654 43.8633H76.9858L78.3782 36.588H81.8117L83.1312 29.6844V29.6772L83.2041 29.3127H83.1968H88.5622L89.8889 22.3727L89.9545 22.0374H93.3006L94.693 14.762H92.6445Z"></path>
           <path d="M26.7476 1.64941H41.1863V7.70595H34.5968V18.5108H40.2657V24.5673H34.5968V35.8083H41.1863V41.8648H26.7476V1.64941Z"></path>
           <path d="M10.604 1.64941H15.5946L17.3873 24.1313H17.8718L19.0831 1.64941H25.4304V2.13394L22.5232 41.8648H14.9162L13.3657 22.92H12.8812L11.3308 41.8648H2.90006L-0.00708008 2.13394V1.64941H7.16386L8.32671 24.1313H8.81123L10.604 1.64941Z"></path>
@@ -29,6 +32,7 @@ export default function Home() {
           <path d="M119.205 17.0089C119.205 6.05872 123.226 1.16504 129.428 1.16504C135.678 1.16504 139.651 6.05872 139.651 17.0089V26.5056C139.651 37.4558 135.678 42.3495 129.428 42.3495C123.226 42.3495 119.205 37.4558 119.205 26.5056V17.0089ZM128.023 35.2754C128.023 36.4383 128.507 37.1651 129.428 37.1651C130.397 37.1651 130.833 36.4383 130.833 35.2754V8.23907C130.833 7.07621 130.397 6.34943 129.428 6.34943C128.507 6.34943 128.023 7.07621 128.023 8.23907V35.2754Z"></path>
           <path d="M104.554 41.865V1.64966H118.508V7.75464H112.403V18.7533H117.733V24.8098H112.403V41.865H104.554Z"></path>
         </svg>
+        </div>
       </nav>
 
       {/* ── Hero ── */}
