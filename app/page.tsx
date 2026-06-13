@@ -74,7 +74,7 @@ export default function Home() {
           fontSize: "clamp(16px, 2vw, 20px)", fontWeight: 300,
           color: "var(--muted)", lineHeight: 1.7, maxWidth: "600px", marginBottom: "48px",
         }}>
-          Stop reviewing boilerplate PRs. Wire your Linear issues to Claude and let agents ship features while you sleep.
+          Drop a card. Ship a feature. Zero humans in the loop.
         </p>
 
         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", justifyContent: "center" }}>
