@@ -114,7 +114,9 @@ export const featureAgent = task({
     // ── 0b. Fetch team workflow states once — reused for In Progress + Done ──
     const team = await linearIssue.team;
     const workflowStates = team ? (await team.states()).nodes : [];
-    const inProgressState = workflowStates.find((s) => s.type === "started");
+    const inProgressState =
+      workflowStates.find((s) => /in.?progress/i.test(s.name)) ??
+      workflowStates.find((s) => s.type === "started" && !/in.?preview/i.test(s.name));
 
     // Move to In Progress immediately so the card reflects agent activity
     if (inProgressState) {
