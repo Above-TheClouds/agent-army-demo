@@ -154,7 +154,8 @@ CRITICAL RULES — you must follow all of these:
 - Return the COMPLETE file contents for each changed file (the full file, not a diff), but with only the minimal change applied.
 - Only return valid JSON, nothing else. No markdown fences, no explanation, just the JSON object.
 - Use Unix-style paths (e.g. "app/page.tsx").
-- Do not touch files unrelated to the issue.`,
+- Do not touch files unrelated to the issue.
+- NEVER put raw prose or plain text as the content of a .ts or .tsx file. The content field must always be valid TypeScript/JSX source code, exactly as it would appear in the editor. If the change is to a string inside JSX, modify that string inside the surrounding JSX — do not replace the whole file with the string value.`,
       messages: [
         {
           role: "user",
@@ -193,7 +194,13 @@ Return only JSON in this exact shape (always at least one file):
     try {
       const json = parseJson(codeOutput);
       if (Array.isArray(json.files)) {
-        filesToChange = json.files;
+        filesToChange = json.files.filter((f: { path: string; content: string }) => {
+          if (/\.(tsx?|jsx?)$/.test(f.path) && !looksLikeCode(f.content)) {
+            logger.error("Rejected file: content is not valid TypeScript/JSX", { path: f.path, preview: f.content.slice(0, 120) });
+            return false;
+          }
+          return true;
+        });
       }
     } catch (err) {
       logger.error("Failed to parse code JSON from Claude", {
@@ -418,6 +425,12 @@ function formatContext(files: Record<string, string>): string {
   return Object.entries(files)
     .map(([path, content]) => `${path}:\n${content}`)
     .join("\n\n");
+}
+
+// Returns false if the content looks like raw prose rather than TS/JSX source.
+// A valid TS/JSX file will contain at least one of these patterns.
+function looksLikeCode(content: string): boolean {
+  return /import\s|export\s|export default|function\s|const\s|let\s|var\s|class\s|=>/m.test(content);
 }
 
 function readFileSafe(path: string): string {
