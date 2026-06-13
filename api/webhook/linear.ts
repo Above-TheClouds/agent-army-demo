@@ -106,17 +106,26 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         owner,
         repo,
         state: "open",
+        per_page: 100,
       });
 
+      const prefix = `agent/${issueIdentifier.toLowerCase()}-`;
       const pr = prs.data.find((pr) =>
-        pr.head.ref.toLowerCase().startsWith(`agent/${issueIdentifier.toLowerCase()}-`) ||
+        pr.head.ref.toLowerCase().startsWith(prefix) ||
         pr.title.toLowerCase().includes(issueIdentifier.toLowerCase())
       );
+
+      console.log("[webhook] PR lookup", {
+        issueIdentifier,
+        prefix,
+        openPRs: prs.data.map((p) => p.head.ref),
+        matched: pr?.head.ref ?? null,
+      });
 
       if (!pr) {
         await linearClient.createComment({
           issueId: issue.id,
-          body: `⚠️ Could not find an open draft PR for ${issueIdentifier}.`,
+          body: `⚠️ Could not find an open PR for ${issueIdentifier}. Make sure the agent has finished and the PR is open (not merged or closed).`,
         });
         res.writeHead(200).end("OK");
         return;

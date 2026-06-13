@@ -113,14 +113,65 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  // Skip production branch deployments
   const defaultBranch = process.env.GITHUB_DEFAULT_BRANCH ?? "main";
-  if (branch === defaultBranch) {
+  const isProduction = branch === defaultBranch || branch === "";
+
+  if (isProduction) {
+    // For production deployments the branch is main — extract the issue ID
+    // from the squash-merge commit message (e.g. "AGE-28: Copy update (#5)")
+    if (!isSuccess) {
+      res.writeHead(200).end("OK");
+      return;
+    }
+
+    const commitMessage = String(
+      deployment?.meta?.githubCommitMessage ??
+      deployment?.meta?.commitMessage ??
+      ""
+    );
+    const prodMatch = commitMessage.match(/([A-Z]+-\d+)/);
+
+    console.log("[vercel-webhook] Production deployment", { commitMessage, matched: prodMatch?.[1] ?? null });
+
+    if (!prodMatch) {
+      res.writeHead(200).end("OK");
+      return;
+    }
+
+    const prodIdentifier = prodMatch[1];
+    const linear = new LinearClient({ apiKey: LINEAR_API_KEY }) as any;
+    let prodIssue: any;
+    try {
+      prodIssue = await linear.issue(prodIdentifier);
+    } catch {
+      prodIssue = null;
+    }
+
+    if (prodIssue) {
+      const productionUrl = process.env.VERCEL_PRODUCTION_URL
+        ? `https://${process.env.VERCEL_PRODUCTION_URL}`
+        : previewUrl
+        ? `https://${previewUrl}`
+        : "";
+
+      await linear.createComment({
+        issueId: prodIssue.id,
+        body: [
+          "🚀 **Deployed to production!**",
+          "",
+          productionUrl ? `[View live site](${productionUrl})` : "",
+        ].filter(Boolean).join("\n"),
+      });
+
+      console.log(`[vercel-webhook] Posted production deploy comment to ${prodIdentifier}`);
+    }
+
     res.writeHead(200).end("OK");
     return;
   }
 
-  // Extract Linear issue ID from branch name (e.g. "eng-42-add-login" → "ENG-42")
+  // Preview deployments — extract Linear issue ID from branch name
+  // (e.g. "agent/age-42-add-login" → "AGE-42")
   const match = branch.match(/([a-zA-Z]+-\d+)/);
   if (!match) {
     res.writeHead(200).end("OK");
