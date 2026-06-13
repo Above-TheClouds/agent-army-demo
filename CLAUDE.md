@@ -52,7 +52,7 @@ DESIGN.md           — design tokens and UI conventions
 1. All copy (headlines, body text, CTAs) lives in `app/page.tsx` as plain JSX strings — edit those directly.
 2. Design tokens are in `app/globals.css`. Never hardcode colors or font sizes — always use `var(--token)`.
 3. Do not install new dependencies without asking. The stack is intentionally minimal.
-4. Do not touch `api/webhook/` or `src/trigger/` for copy changes — those are infrastructure.
+4. Do not touch `api/webhook/`, `src/trigger/`, or `sentry.*.config.ts`/`instrumentation.ts` at the repo root for copy changes — those are infrastructure.
 5. After any copy change, confirm the text reads well at mobile widths (the `clamp()` font sizes handle it).
 6. Branch from `main`. Never commit directly to `main`.
 
