@@ -184,13 +184,15 @@ export default function Article() {
       const currentContent = Buffer.from((articlesFile as any).content, "base64").toString("utf-8");
 
       const newEntry = `  { slug: "${articleSlug}", title: "${articleTitle.replace(/"/g, '\\"')}", date: "${today()}", excerpt: "${articleExcerpt.replace(/"/g, '\\"')}" },`;
-      const patchedContent = currentContent.replace(
-        "export const articles: Article[] = [];",
-        `export const articles: Article[] = [\n${newEntry}\n];`
-      ).replace(
-        /export const articles: Article\[\] = \[\n([\s\S]*?)\];/,
-        (match, existing) => `export const articles: Article[] = [\n${existing}${newEntry}\n];`
-      );
+      const patchedContent = currentContent.includes("export const articles: Article[] = [];")
+        ? currentContent.replace(
+            "export const articles: Article[] = [];",
+            `export const articles: Article[] = [\n${newEntry}\n];`
+          )
+        : currentContent.replace(
+            /export const articles: Article\[\] = \[\n([\s\S]*?)\];/,
+            (match, existing) => `export const articles: Article[] = [\n${existing}${newEntry}\n];`
+          );
 
       const articlesBlob = await octokit.git.createBlob({ owner, repo, content: patchedContent, encoding: "utf-8" });
 
