@@ -38,7 +38,7 @@ export default function Home() {
           letterSpacing: "0.24em", textTransform: "uppercase",
           marginBottom: "28px", opacity: 0.7,
         }}>
-          Live Demo · WeLoveFounders Expert Talk
+          Live Demo Session · WeLoveFounders Expert Talk
         </p>
 
         <h1 style={{
