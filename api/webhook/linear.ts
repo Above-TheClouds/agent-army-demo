@@ -45,7 +45,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const eventAction = payload.action as string;
   const data = payload.data as any;
   const assignedToAgent = AGENT_USER_ID && data?.assigneeId === AGENT_USER_ID;
-  const stateIsUnstarted = data?.state?.type === "unstarted";
+  const stateIsUnstarted = data?.state?.name === "To Do";
 
   console.log("[webhook] Linear payload", {
     type: eventType,
