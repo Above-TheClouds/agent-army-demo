@@ -367,12 +367,23 @@ function parseJson(text: string): any {
 
 // Returns a map of repo-relative path → file contents for all files under app/
 // plus top-level docs. New files added to the repo are picked up automatically.
+// Falls back to known paths if the directory scan fails (e.g. in cloud runners).
 function getRepoContext(): Record<string, string> {
   const root = process.cwd();
   const files: Record<string, string> = {};
 
-  for (const rel of walkDir(join(root, "app"))) {
-    files[rel] = readFileSafe(join(root, rel));
+  const appFiles = walkDir(join(root, "app"));
+
+  if (appFiles.length > 0) {
+    for (const rel of appFiles) {
+      files[rel] = readFileSafe(join(root, rel));
+    }
+  } else {
+    // Fallback: read the files we know about
+    for (const rel of ["app/page.tsx", "app/layout.tsx", "app/globals.css"]) {
+      const content = readFileSafe(join(root, rel));
+      if (content) files[rel] = content;
+    }
   }
 
   for (const doc of ["DESIGN.md", "README.md", "CLAUDE.md"]) {
@@ -384,17 +395,21 @@ function getRepoContext(): Record<string, string> {
 }
 
 function walkDir(dir: string, root = dir): string[] {
-  const entries = readdirSync(dir, { withFileTypes: true });
-  const results: string[] = [];
-  for (const entry of entries) {
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      results.push(...walkDir(full, root));
-    } else {
-      results.push(relative(root, full).replace(/\\/g, "/").replace(/^/, "app/"));
+  try {
+    const entries = readdirSync(dir, { withFileTypes: true });
+    const results: string[] = [];
+    for (const entry of entries) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...walkDir(full, root));
+      } else {
+        results.push(relative(root, full).replace(/\\/g, "/").replace(/^/, "app/"));
+      }
     }
+    return results;
+  } catch {
+    return [];
   }
-  return results;
 }
 
 function formatContext(files: Record<string, string>): string {
