@@ -33,6 +33,27 @@ export default function Home() {
           background: "radial-gradient(circle at 50% 45%, var(--glow) 0%, transparent 60%)",
         }} />
 
+        <div style={{
+          position: "relative", display: "flex", justifyContent: "center",
+          marginBottom: "32px",
+        }}>
+          <svg
+            width={48} height={48} viewBox="0 0 48 48"
+            fill="none" stroke="var(--gold)" strokeWidth={1.25}
+            strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+          >
+            <circle cx="24" cy="24" r="5" />
+            <circle cx="8" cy="12" r="3" />
+            <circle cx="40" cy="12" r="3" />
+            <circle cx="8" cy="36" r="3" />
+            <circle cx="40" cy="36" r="3" />
+            <line x1="20" y1="21" x2="11" y2="14" />
+            <line x1="28" y1="21" x2="37" y2="14" />
+            <line x1="20" y1="27" x2="11" y2="34" />
+            <line x1="28" y1="27" x2="37" y2="34" />
+          </svg>
+        </div>
+
         <p style={{
           fontSize: "11px", fontWeight: 700, color: "var(--gold)",
           letterSpacing: "0.24em", textTransform: "uppercase",
