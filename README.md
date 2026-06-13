@@ -35,13 +35,12 @@ flowchart TD
     GH2 -->|PR merged| GH3[GitHub — merge to main]
     GH3 -->|deploy| V[Vercel Production]
     V -->|deployment webhook| W3
-    W3 -->|production URL comment| A
-    C -->|move to Done| A
+    W3 -->|production URL comment + move to Done| A
 
     subgraph Preview Loop
         GH2 -->|open PR branch| VP[Vercel Preview]
         VP -->|deployment webhook| W3
-        W3 -->|preview URL comment| A
+        W3 -->|preview URL comment + move to In Preview| A
     end
 ```
 
@@ -52,8 +51,8 @@ flowchart TD
 ### Feature flow
 1. Assign a card to the **AI Agent** user and drop it in **To Do**
 2. Agent moves it to **In Progress**, reads the repo, generates a plan, opens a PR
-3. Vercel deploys a preview — URL appears as a Linear comment
-4. Reply **ship it** → PR merges → production deploy → Linear comment with live URL
+3. Vercel deploys the preview branch — URL appears as a Linear comment, card moves to **In Preview**
+4. Reply **ship it** → PR merges → production deploys → Linear comment with live URL, card moves to **Done**
 
 ### Bug flow
 1. Click **Trigger bug →** on the homepage
@@ -123,6 +122,20 @@ npm run trigger:deploy   # Agent task → Trigger.dev cloud
 | Linear | `/api/webhook/linear` | Issues, Comments |
 | Vercel | `/api/webhook/vercel` | Deployment succeeded |
 | Sentry | `/api/webhook/sentry` | Issue created (via alert rule) |
+
+### Linear workflow states
+
+The agent expects these states in your Linear team's workflow (Settings → Workflow):
+
+| State | Type | Created by |
+|---|---|---|
+| To Do | Unstarted | Default |
+| In Progress | Started | Default |
+| **In Preview** | Started | **You must create this** |
+| Done | Completed | Default |
+| Canceled | Canceled | Default |
+
+The "In Preview" state is not a Linear default — add it manually before running the demo.
 
 ---
 
