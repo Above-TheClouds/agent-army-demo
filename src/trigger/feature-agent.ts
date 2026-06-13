@@ -78,7 +78,7 @@ export const featureAgent = task({
     // ── 2. Ask Claude to produce an implementation plan ──────────────────────
     logger.info("Calling Claude...");
 
-    const repoContext = getRepoContext();
+    const repoContext = await getRepoContext();
 
     const response = await anthropic.messages.create({
       model: "claude-opus-4-7",
@@ -386,32 +386,49 @@ function parseJson(text: string): any {
   return JSON.parse(text.slice(first, last + 1));
 }
 
-// Returns a map of repo-relative path → file contents for all files under app/
-// plus top-level docs. New files added to the repo are picked up automatically.
-// Falls back to known paths if the directory scan fails (e.g. in cloud runners).
-function getRepoContext(): Record<string, string> {
+// Fetches repo file contents from GitHub (reliable in cloud) with a local
+// filesystem fallback for local dev when GITHUB_REPO is not set.
+async function getRepoContext(): Promise<Record<string, string>> {
+  const githubRepo = process.env.GITHUB_REPO;
+  const branch = process.env.GITHUB_DEFAULT_BRANCH ?? "main";
+
+  if (githubRepo && process.env.GITHUB_TOKEN) {
+    try {
+      const [owner, repo] = githubRepo.split("/");
+      const { data: ref } = await octokit.git.getRef({ owner, repo, ref: `heads/${branch}` });
+      const { data: tree } = await octokit.git.getTree({
+        owner, repo, tree_sha: ref.object.sha, recursive: "1",
+      });
+
+      const relevant = (tree.tree ?? []).filter(
+        (item) =>
+          item.type === "blob" &&
+          item.path &&
+          item.sha &&
+          (item.path.startsWith("app/") || ["DESIGN.md", "README.md", "CLAUDE.md"].includes(item.path))
+      );
+
+      const entries = await Promise.all(
+        relevant.map(async (item) => {
+          const { data: blob } = await octokit.git.getBlob({ owner, repo, file_sha: item.sha! });
+          const content = Buffer.from(blob.content, "base64").toString("utf8");
+          return [item.path!, content] as const;
+        })
+      );
+
+      return Object.fromEntries(entries);
+    } catch (err) {
+      logger.warn("Failed to fetch repo context from GitHub, falling back to filesystem", { error: String(err) });
+    }
+  }
+
+  // Local dev fallback
   const root = process.cwd();
   const files: Record<string, string> = {};
-
-  const appFiles = walkDir(join(root, "app"));
-
-  if (appFiles.length > 0) {
-    for (const rel of appFiles) {
-      files[rel] = readFileSafe(join(root, rel));
-    }
-  } else {
-    // Fallback: read the files we know about
-    for (const rel of ["app/page.tsx", "app/layout.tsx", "app/globals.css"]) {
-      const content = readFileSafe(join(root, rel));
-      if (content) files[rel] = content;
-    }
+  for (const rel of [...walkDir(join(root, "app")), "DESIGN.md", "README.md", "CLAUDE.md"]) {
+    const content = readFileSafe(join(root, rel.startsWith("app/") ? rel : rel));
+    if (content) files[rel] = content;
   }
-
-  for (const doc of ["DESIGN.md", "README.md", "CLAUDE.md"]) {
-    const content = readFileSafe(join(root, doc));
-    if (content) files[doc] = content;
-  }
-
   return files;
 }
 
