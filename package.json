@@ -16,6 +16,7 @@
     "@anthropic-ai/sdk": "^0.104.1",
     "@linear/sdk": "^27.0.0",
     "@octokit/rest": "^21.0.0",
+    "@sentry/nextjs": "^10.57.0",
     "@trigger.dev/sdk": "^4.4.6",
     "next": "^15.0.0",
     "react": "^19.0.0",

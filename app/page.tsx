@@ -1,3 +1,5 @@
+import BugButton from "./BugButton";
+
 export default function Home() {
   return (
     <main style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)" }}>
@@ -85,6 +87,7 @@ export default function Home() {
           >
             See how it works
           </a>
+          <BugButton />
         </div>
       </section>
 
