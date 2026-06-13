@@ -1,9 +1,9 @@
 import { task, logger, tasks } from "@trigger.dev/sdk/v3";
-import { LinearClient } from "@linear/sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import type { featureAgent } from "./feature-agent";
 import type { contentAgent } from "./content-agent";
 
-const linear = new LinearClient({ apiKey: process.env.LINEAR_API_KEY });
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 interface LinearWebhookPayload {
   type: string;
@@ -27,27 +27,42 @@ export const orchestrator = task({
   run: async (payload: LinearWebhookPayload) => {
     const { data: issue } = payload;
 
-    logger.info("Orchestrator routing", {
-      identifier: issue.identifier,
-      teamId: issue.teamId,
-    });
+    logger.info("Orchestrator routing", { identifier: issue.identifier, title: issue.title });
 
-    // Route by team ID if LINEAR_CONTENT_TEAM_ID is set,
-    // otherwise fetch labels from Linear and check for "content" label.
+    // Route by Linear team if LINEAR_CONTENT_TEAM_ID is configured,
+    // otherwise ask Claude to classify the issue intent.
     let pod: "feature" | "content" = "feature";
+    let routingReason = "";
 
     if (process.env.LINEAR_CONTENT_TEAM_ID && issue.teamId === process.env.LINEAR_CONTENT_TEAM_ID) {
       pod = "content";
+      routingReason = "team ID matched LINEAR_CONTENT_TEAM_ID";
     } else {
-      try {
-        const linearIssue = await linear.issue(issue.id);
-        const labels = await linearIssue.labels();
-        const hasContentLabel = labels.nodes.some((l) => /content/i.test(l.name));
-        if (hasContentLabel) pod = "content";
-      } catch (err) {
-        logger.warn("Could not fetch labels for routing — defaulting to feature pod", { error: String(err) });
-      }
+      const response = await anthropic.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 10,
+        system: `You are a router. Classify the intent of a Linear issue into exactly one of two categories:
+- "feature": a code change, UI update, bug fix, or any modification to the product itself
+- "content": writing an article, blog post, or knowledge base entry
+
+Reply with only the word "feature" or "content". Nothing else.`,
+        messages: [
+          {
+            role: "user",
+            content: `Title: ${issue.title}\n\nDescription: ${issue.description ?? "(none)"}`,
+          },
+        ],
+      });
+
+      const classification = response.content[0].type === "text"
+        ? response.content[0].text.trim().toLowerCase()
+        : "feature";
+
+      pod = classification === "content" ? "content" : "feature";
+      routingReason = `Claude classified as "${classification}"`;
     }
+
+    logger.info("Routing decision", { identifier: issue.identifier, pod, reason: routingReason });
 
     const idempotencyKey = `${issue.identifier}-${payload.data.state?.id ?? "unknown"}`;
 
@@ -59,6 +74,6 @@ export const orchestrator = task({
       logger.info("Dispatched to feature-agent", { identifier: issue.identifier });
     }
 
-    return { identifier: issue.identifier, pod };
+    return { identifier: issue.identifier, pod, reason: routingReason };
   },
 });
