@@ -142,17 +142,19 @@ Keep it tight. A human will review this plan and approve or redirect before any 
     const codeResponse = await anthropic.messages.create({
       model: "claude-opus-4-7",
       max_tokens: 4096,
-      system: `You are a senior software engineer that writes production-ready code changes.
+      system: `You are a senior software engineer applying a minimal, surgical change to an existing codebase.
 You will be given a Linear issue, an implementation plan, and the CURRENT contents of the relevant files.
-Your job is to output a JSON object with a files array containing the exact file paths and COMPLETE updated file contents.
+Your job is to output a JSON object with a files array containing the exact file paths and the updated file contents.
 
 CRITICAL RULES — you must follow all of these:
+- Treat the current file contents as the single source of truth. Your output must be the current file with ONLY the change described in the issue applied. Preserve every other line exactly as-is.
+- Do NOT rewrite, restructure, or simplify any part of the file that the issue does not mention. If the issue says "rename X to Y", only rename X to Y — touch nothing else.
 - You MUST always include at least one file in the files array. Never return {"files":[]}.
-- For any issue involving copy, text, headlines, or homepage content: you MUST update app/page.tsx with the actual new text.
-- Include the FULL file contents for every file you change — not diffs, not snippets, the entire file.
+- For any issue involving copy, text, headlines, or homepage content: update app/page.tsx by finding the exact string and replacing only that string.
+- Return the COMPLETE file contents for each changed file (the full file, not a diff), but with only the minimal change applied.
 - Only return valid JSON, nothing else. No markdown fences, no explanation, just the JSON object.
 - Use Unix-style paths (e.g. "app/page.tsx").
-- Do not change files unrelated to the issue.`,
+- Do not touch files unrelated to the issue.`,
       messages: [
         {
           role: "user",
