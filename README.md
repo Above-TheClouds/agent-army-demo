@@ -143,6 +143,17 @@ The "In Preview" state is not a Linear default — add it manually before runnin
 
 The agent fetches its system prompts from Langfuse at runtime, so you can tune agent behavior without redeploying. If a prompt is missing or unreachable, the agent falls back to the defaults hardcoded in `src/trigger/feature-agent.ts`.
 
+Each prompt also supports a **Config** JSON field for model settings. This lets you switch models or run A/B tests between prompt versions without touching code:
+
+```json
+{
+  "model": "claude-opus-4-8",
+  "max_tokens": 2048
+}
+```
+
+If `model` or `max_tokens` are absent from the config, the agent uses `claude-opus-4-7` and the hardcoded token limits as fallback.
+
 ### Create the prompts
 
 Go to **Langfuse → Prompt Management → New Prompt** and create two **text** prompts (not chat):
