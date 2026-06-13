@@ -50,15 +50,28 @@ export const featureAgent = task({
       title: issue.title,
     });
 
-    // ── 0. Post a comment to show the agent is analyzing ─────────────────────
+    // ── 0. Fetch the full issue and guard against duplicate runs ─────────────
+    // Posting a comment updates the issue's updatedAt, which fires another
+    // Issue.update webhook. Checking for an existing agent comment stops that
+    // feedback loop before we do any work.
+    const linearIssue = await linear.issue(issue.id);
+    const description = linearIssue.description ?? "(no description provided)";
+
+    const existingComments = await linearIssue.comments();
+    const alreadyRunning = existingComments.nodes.some((c) =>
+      c.body?.includes("🤖 **Feature Agent**")
+    );
+    if (alreadyRunning) {
+      logger.info("Agent already commented on this issue — skipping duplicate run", {
+        identifier: issue.identifier,
+      });
+      return { skipped: true, issueId: issue.id, identifier: issue.identifier };
+    }
+
     await linear.createComment({
       issueId: issue.id,
       body: "🤖 **Feature Agent** is analyzing this issue...",
     });
-
-    // ── 1. Fetch the full issue from Linear ─────────────────────────────────
-    const linearIssue = await linear.issue(issue.id);
-    const description = linearIssue.description ?? "(no description provided)";
 
     logger.info("Issue fetched from Linear", { identifier: issue.identifier });
 
