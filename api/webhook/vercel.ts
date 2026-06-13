@@ -163,6 +163,21 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         ].filter(Boolean).join("\n"),
       });
 
+      // Move to Done on production deploy
+      try {
+        const prodTeam = await prodIssue.team;
+        if (prodTeam) {
+          const states = (await prodTeam.states()).nodes;
+          const doneState = states.find((s: any) => s.type === "completed");
+          if (doneState) {
+            await linear.updateIssue(prodIssue.id, { stateId: doneState.id });
+            console.log(`[vercel-webhook] Moved ${prodIdentifier} to Done`);
+          }
+        }
+      } catch (err) {
+        console.warn(`[vercel-webhook] Could not move ${prodIdentifier} to Done`, String(err));
+      }
+
       console.log(`[vercel-webhook] Posted production deploy comment to ${prodIdentifier}`);
     }
 
@@ -288,6 +303,23 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     issueId: issue.id,
     body: lines.join("\n"),
   });
+
+  // Move to "In Preview" so the card reflects the deployment state
+  try {
+    const previewTeam = await issue.team;
+    if (previewTeam) {
+      const states = (await previewTeam.states()).nodes;
+      const inPreviewState = states.find((s: any) => /in.?preview/i.test(s.name));
+      if (inPreviewState) {
+        await linear.updateIssue(issue.id, { stateId: inPreviewState.id });
+        console.log(`[vercel-webhook] Moved ${issueIdentifier} to ${inPreviewState.name}`);
+      } else {
+        console.warn(`[vercel-webhook] No "In Preview" state found in workflow — create it in Linear Settings → Workflow`);
+      }
+    }
+  } catch (err) {
+    console.warn(`[vercel-webhook] Could not move ${issueIdentifier} to In Preview`, String(err));
+  }
 
   console.log(`[vercel-webhook] Posted preview URL to ${issueIdentifier}: ${previewUrl}`);
 

@@ -115,7 +115,6 @@ export const featureAgent = task({
     const team = await linearIssue.team;
     const workflowStates = team ? (await team.states()).nodes : [];
     const inProgressState = workflowStates.find((s) => s.type === "started");
-    const doneState = workflowStates.find((s) => s.type === "completed");
 
     // Move to In Progress immediately so the card reflects agent activity
     if (inProgressState) {
@@ -424,12 +423,6 @@ Return only the patches JSON.`,
         });
 
         logger.info("PR opened", { prUrl: pr.html_url });
-
-        // Move to Done now that the PR is ready
-        if (doneState) {
-          await linear.updateIssue(issue.id, { stateId: doneState.id });
-          logger.info("Moved issue to Done", { state: doneState.name });
-        }
 
         await linear.createComment({
           issueId: issue.id,
