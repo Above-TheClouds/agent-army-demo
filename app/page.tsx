@@ -104,7 +104,7 @@ export default function Home() {
           fontFamily: "Georgia, serif", fontSize: "clamp(28px, 4vw, 48px)",
           fontWeight: 400, marginBottom: "64px", lineHeight: 1.15, color: "var(--text)",
         }}>
-          From Linear issue to merged PR. <span style={{ color: "var(--gold)", fontStyle: "italic" }}>No human in the loop.</span>
+          From Crazy Linear issue to merged PR. <span style={{ color: "var(--gold)", fontStyle: "italic" }}>No human in the loop.</span>
         </h2>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "24px" }}>
