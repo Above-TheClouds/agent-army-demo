@@ -10,7 +10,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { tasks } from "@trigger.dev/sdk/v3";
 import { Octokit } from "@octokit/rest";
 import { LinearClient } from "@linear/sdk";
-import type { featureAgent } from "../../src/trigger/feature-agent.js";
+import type { orchestrator } from "../../src/trigger/orchestrator.js";
 import type { IncomingMessage, ServerResponse } from "http";
 
 const WEBHOOK_SECRET = process.env.LINEAR_WEBHOOK_SECRET ?? "";
@@ -169,9 +169,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   // Linear delivers the webhook more than once (at-least-once delivery).
   const idempotencyKey = `${data?.identifier}-${data?.updatedAt ?? data?.createdAt}`;
 
-  await tasks.trigger<typeof featureAgent>("feature-agent", payload as any, { idempotencyKey });
+  await tasks.trigger<typeof orchestrator>("orchestrator", payload as any, { idempotencyKey });
 
-  console.log(`[webhook] Triggered feature-agent for ${data?.identifier} via ${trigger}`);
+  console.log(`[webhook] Triggered orchestrator for ${data?.identifier} via ${trigger}`);
 
   res.writeHead(200).end("OK");
 }

@@ -1,4 +1,5 @@
-import { task, logger } from "@trigger.dev/sdk/v3";
+import { task, logger, tasks } from "@trigger.dev/sdk/v3";
+import type { featureVerifier } from "./feature-verifier";
 import Anthropic from "@anthropic-ai/sdk";
 import { LinearClient } from "@linear/sdk";
 import { Octokit } from "@octokit/rest";
@@ -444,6 +445,16 @@ Return only the patches JSON.`,
             "Reply **ship it** to merge, or leave feedback to refine.",
           ].join("\n"),
         });
+
+        // Spawn the verifier to review the PR independently
+        await tasks.trigger<typeof featureVerifier>("feature-verifier", {
+          issueId: issue.id,
+          identifier: issue.identifier,
+          prNumber: pr.number,
+          prTitle: pr.title,
+          prUrl: pr.html_url,
+        });
+        logger.info("Spawned feature-verifier", { prNumber: pr.number });
       } catch (err) {
         logger.error("Failed to open draft PR", { error: String(err) });
       }
