@@ -111,7 +111,7 @@ export default function Home() {
           {[
             { n: "01", title: "Drop it in To Do", body: "Assign a Linear card to the AI Agent and move it to To Do. The agent picks it up instantly." },
             { n: "02", title: "Claude plans and ships", body: "The agent moves the card to In Progress, reads the repo, writes a plan, and opens a PR. All traced in Langfuse." },
-            { n: "03", title: "Preview deploys", body: "Vercel deploys a preview branch. The URL lands as a Linear comment before you refresh." },
+            { n: "03", title: "Preview deploys", body: "Vercel deploys the branch. The preview URL lands as a Linear comment and the card moves to In Preview." },
             { n: "04", title: "Ship it", body: "Reply ship it in Linear. The PR merges, production deploys, and the card moves to Done." },
           ].map(({ n, title, body }) => (
             <div key={n} style={{
