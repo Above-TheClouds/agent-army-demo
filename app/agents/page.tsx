@@ -1,59 +1,63 @@
 const agents = [
   {
-    id: "feature-agent",
-    name: "Feature Agent",
-    status: "active" as const,
-    pod: "Product Pod",
-    trigger: "Linear issue assigned to agent in To Do",
-    skills: [
-      "Reads the live repo via GitHub API",
-      "Generates an implementation plan with Claude",
-      "Produces surgical find/replace patches",
-      "Opens a PR and posts a plan to Linear",
-    ],
-    task: "feature-agent",
-  },
-  {
     id: "orchestrator",
     name: "Orchestrator",
-    status: "soon" as const,
+    status: "active" as const,
     pod: "All Pods",
-    trigger: "All Linear webhooks — routes to the right agent",
+    model: "claude-haiku-4-5",
+    trigger: "Every Linear webhook — single entry point for the army",
     skills: [
-      "Reads issue team and labels to determine pod",
-      "Dispatches to specialized agents in parallel",
-      "Waits for subagent results and compiles them",
-      "Updates Linear with a unified summary",
+      "Classifies issue intent with Claude (feature vs. content)",
+      "Routes to the right agent without labels or manual setup",
+      "Passes idempotency keys to prevent duplicate runs",
+      "Falls back to team-based routing if LINEAR_CONTENT_TEAM_ID is set",
     ],
     task: null,
   },
   {
+    id: "feature-agent",
+    name: "Feature Agent",
+    status: "active" as const,
+    pod: "Product Pod",
+    model: "claude-opus-4-7",
+    trigger: "Dispatched by orchestrator for code and UI changes",
+    skills: [
+      "Reads the live repo via GitHub API",
+      "Generates a concise implementation plan with Claude",
+      "Produces surgical find/replace patches (never full file rewrites)",
+      "Opens a PR, posts plan and preview link to Linear",
+    ],
+    task: "feature-agent",
+  },
+  {
     id: "feature-verifier",
     name: "Feature Verifier",
-    status: "soon" as const,
+    status: "active" as const,
     pod: "Product Pod",
-    trigger: "Spawned by orchestrator after a PR is opened",
+    model: "claude-sonnet-4-6",
+    trigger: "Spawned by feature-agent immediately after every PR is opened",
     skills: [
-      "Reads the PR diff via GitHub API",
-      "Verifies the change matches the Linear issue",
-      "Flags logic errors or missing edge cases",
-      "Posts a code review comment to Linear",
+      "Fetches the full PR diff via GitHub API",
+      "Verifies the change matches the original Linear issue",
+      "Flags logic errors, missing edge cases, or scope creep",
+      "Posts a concise LGTM or NEEDS CHANGES review to Linear",
     ],
     task: null,
   },
   {
     id: "content-agent",
     name: "Content Agent",
-    status: "soon" as const,
+    status: "active" as const,
     pod: "Content Pod",
-    trigger: "Linear issue assigned to agent in Content Pod",
+    model: "claude-sonnet-4-6",
+    trigger: "Dispatched by orchestrator for article and knowledge base briefs",
     skills: [
-      "Reads a content brief from the Linear issue",
-      "Generates a structured article with Claude",
-      "Opens a PR adding the article to /knowledge",
-      "Posts a preview link to Linear",
+      "Reads the content brief from the Linear issue description",
+      "Generates a full styled article matching the site design",
+      "Opens a PR creating a new page under /knowledge",
+      "Patches the article manifest and posts a preview link to Linear",
     ],
-    task: null,
+    task: "content-agent",
   },
 ];
 
@@ -105,7 +109,6 @@ export default function AgentsPage() {
               background: "var(--card)", border: "1px solid var(--border)",
               borderRadius: "12px", padding: "36px 40px",
               display: "grid", gridTemplateColumns: "1fr 1fr", gap: "40px",
-              opacity: agent.status === "soon" ? 0.6 : 1,
             }}>
               {/* Left */}
               <div>
@@ -123,9 +126,14 @@ export default function AgentsPage() {
                     {agent.status === "active" ? "Active" : "Coming soon"}
                   </span>
                 </div>
-                <p style={{ fontSize: "12px", color: "var(--gold)", opacity: 0.7, letterSpacing: "0.1em", marginBottom: "16px" }}>
-                  {agent.pod}
-                </p>
+                <div style={{ display: "flex", gap: "16px", alignItems: "center", marginBottom: "16px" }}>
+                  <p style={{ fontSize: "12px", color: "var(--gold)", opacity: 0.7, letterSpacing: "0.1em" }}>
+                    {agent.pod}
+                  </p>
+                  <span style={{ fontSize: "11px", color: "var(--muted)", opacity: 0.6, fontFamily: "monospace" }}>
+                    {agent.model}
+                  </span>
+                </div>
                 <p style={{ fontSize: "13px", color: "var(--muted)", lineHeight: 1.6, marginBottom: "20px" }}>
                   <span style={{ color: "var(--text)", fontWeight: 500 }}>Trigger: </span>
                   {agent.trigger}
