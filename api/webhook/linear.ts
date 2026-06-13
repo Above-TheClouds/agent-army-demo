@@ -44,22 +44,18 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const eventType = payload.type;
   const eventAction = payload.action as string;
   const data = payload.data as any;
-  const labels = (data?.labels ?? []) as any[];
-  const hasFeatureLabel = labels.some((l: any) => l.name === "feature:build");
   const assignedToAgent = AGENT_USER_ID && data?.assigneeId === AGENT_USER_ID;
-
-  console.log("[webhook] Raw Linear payload data", {
-    data: data,
-    changes: payload.changes,
-  });
+  const stateIsUnstarted = data?.state?.type === "unstarted";
 
   console.log("[webhook] Linear payload", {
     type: eventType,
     action: eventAction,
     identifier: data?.identifier,
-    labels: labels.map((l: any) => l.name),
-    hasFeatureLabel,
-    assignedToAgent,
+    assigneeId: data?.assigneeId,
+    stateType: data?.state?.type,
+    stateName: data?.state?.name,
+    assignedToAgent: !!assignedToAgent,
+    stateIsUnstarted,
   });
 
   if (typeof eventType === "string" && /comment/i.test(eventType) && eventAction === "create") {
@@ -152,13 +148,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  if (!hasFeatureLabel && !assignedToAgent) {
-    console.log("[webhook] Ignoring event: no feature label or assignee match");
+  if (!assignedToAgent || !stateIsUnstarted) {
+    console.log("[webhook] Ignoring event: not assigned to agent in an unstarted state");
     res.writeHead(200).end("OK");
     return;
   }
 
-  const trigger = assignedToAgent ? "assigned-to-agent" : "label:feature:build";
+  const trigger = "assigned-to-agent:todo";
 
   // Idempotency key: same issue + same updatedAt = same logical event, even if
   // Linear delivers the webhook more than once (at-least-once delivery).

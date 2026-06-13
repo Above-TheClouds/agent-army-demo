@@ -24,10 +24,10 @@ interface LinearWebhookPayload {
     id: string;
     title: string;
     description?: string;
-    identifier: string; // e.g. "ENG-42"
+    identifier: string;
     url: string;
-    labels?: { nodes: { name: string }[] };
-    team?: { key: string };
+    teamId?: string;
+    state?: { id: string; name: string; type: string };
   };
 }
 
@@ -66,6 +66,18 @@ export const featureAgent = task({
         identifier: issue.identifier,
       });
       return { skipped: true, issueId: issue.id, identifier: issue.identifier };
+    }
+
+    // ── 0b. Fetch team workflow states once — reused for In Progress + Done ──
+    const team = await linearIssue.team;
+    const workflowStates = team ? (await team.states()).nodes : [];
+    const inProgressState = workflowStates.find((s) => s.type === "started");
+    const doneState = workflowStates.find((s) => s.type === "completed");
+
+    // Move to In Progress immediately so the card reflects agent activity
+    if (inProgressState) {
+      await linear.updateIssue(issue.id, { stateId: inProgressState.id });
+      logger.info("Moved issue to In Progress", { state: inProgressState.name });
     }
 
     await linear.createComment({
@@ -341,15 +353,20 @@ Return only the patches JSON.`,
           ].join("\n"),
         });
 
-        logger.info("Draft PR opened", { prUrl: pr.html_url });
+        logger.info("PR opened", { prUrl: pr.html_url });
 
-        // Post the PR link back to Linear and explain the preview follows separately
+        // Move to Done now that the PR is ready
+        if (doneState) {
+          await linear.updateIssue(issue.id, { stateId: doneState.id });
+          logger.info("Moved issue to Done", { state: doneState.name });
+        }
+
         await linear.createComment({
           issueId: issue.id,
           body: [
-            `🔗 Draft PR ready for review: [${pr.title}](${pr.html_url})`,
+            `🔗 PR ready for review: [${pr.title}](${pr.html_url})`,
             "",
-            "If a Vercel preview deployment is configured, the preview URL will be posted in a separate comment.",
+            "Reply **ship it** to merge, or leave feedback to refine.",
           ].join("\n"),
         });
       } catch (err) {
