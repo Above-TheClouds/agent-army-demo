@@ -1,6 +1,6 @@
 # agent-army-demo
 
-> Live demo site for the AI Agent Army workshop — drop a card in Linear and watch a fleet of specialised agents plan, code, verify, write, and ship — without a single human in the loop.
+> The AI Agent Army — fork this, wire it to your Linear, and ship your first autonomous agent today. Live at [agent-army.abovetheclouds.io](https://agent-army.abovetheclouds.io).
 
 Built for the **WeLoveFounders Expert Talk — Building an AI Agent Army** by [Above The Clouds](https://abovetheclouds.io).
 
@@ -263,6 +263,13 @@ agent-army-demo/
 
 ---
 
+## Don't need the homepage?
+
+Delete the `app/` folder. Everything else — the orchestrator, agents, and webhook handlers — is the agent army. Wire it to any codebase.
+
+---
+
+**Live demo:** [agent-army.abovetheclouds.io](https://agent-army.abovetheclouds.io)
 **Above The Clouds:** [abovetheclouds.io](https://abovetheclouds.io)
 **Questions:** [nico@abovetheclouds.io](mailto:nico@abovetheclouds.io)
 
