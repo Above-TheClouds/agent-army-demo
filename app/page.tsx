@@ -60,14 +60,14 @@ export default function Home() {
           fontSize: "clamp(40px, 7vw, 80px)", fontWeight: 400,
           lineHeight: 1.05, marginBottom: "4px", color: "var(--text)",
         }}>
-          Build your
+          Ship features while
         </h1>
         <h1 style={{
           fontFamily: "Georgia, 'Times New Roman', serif",
           fontSize: "clamp(40px, 7vw, 80px)", fontWeight: 400, fontStyle: "italic",
           lineHeight: 1.05, marginBottom: "32px", color: "var(--gold)",
         }}>
-          AI Agent Army.
+          you sleep.
         </h1>
 
         <p style={{
