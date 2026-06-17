@@ -16,9 +16,9 @@ flowchart TD
     end
 
     subgraph Vercel Serverless
-        B[/api/webhook/linear]
-        W2[/api/webhook/sentry] -->|create card| A
-        W3[/api/webhook/vercel]
+        B["/api/webhook/linear"]
+        W2["/api/webhook/sentry"] -->|create card| A
+        W3["/api/webhook/vercel"]
     end
 
     B -->|trigger| ORC
