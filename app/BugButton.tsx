@@ -1,15 +1,28 @@
 "use client";
 
-import * as Sentry from "@sentry/nextjs";
-
 export default function BugButton() {
-  function triggerBug() {
-    try {
-      throw new Error("AgentArmyDemoError: undefined is not a function — simulatedCrash()");
-    } catch (err) {
-      Sentry.captureException(err);
-      alert("Bug triggered! Check Sentry and Linear.");
-    }
+  async function triggerBug() {
+    const id = Date.now();
+    const title = `AgentArmyDemoError: undefined is not a function — simulatedCrash() [${id}]`;
+
+    await fetch("/api/webhook/sentry", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "created",
+        data: {
+          issue: {
+            title,
+            web_url: "",
+            culprit: "app/BugButton.tsx",
+            project: { name: "agent-army-demo" },
+            firstSeen: new Date().toISOString(),
+          },
+        },
+      }),
+    });
+
+    alert("Bug triggered! Check Linear.");
   }
 
   return (
