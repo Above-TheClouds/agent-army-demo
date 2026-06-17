@@ -60,21 +60,21 @@ export default function Home() {
           fontSize: "clamp(40px, 7vw, 80px)", fontWeight: 400,
           lineHeight: 1.05, marginBottom: "4px", color: "var(--text)",
         }}>
-          Ship features while
+          Linear to production,
         </h1>
         <h1 style={{
           fontFamily: "Georgia, 'Times New Roman', serif",
           fontSize: "clamp(40px, 7vw, 80px)", fontWeight: 400, fontStyle: "italic",
           lineHeight: 1.05, marginBottom: "32px", color: "var(--gold)",
         }}>
-          you sleep.
+          autonomously.
         </h1>
 
         <p style={{
           fontSize: "clamp(16px, 2vw, 20px)", fontWeight: 300,
           color: "var(--muted)", lineHeight: 1.7, maxWidth: "600px", marginBottom: "48px",
         }}>
-          Drop a card. Ship a feature. Zero humans in the loop.
+          Assign a Linear card to the AI Agent. Claude plans it, Trigger.dev executes it, GitHub ships it, Vercel deploys it.
         </p>
 
         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", justifyContent: "center" }}>
