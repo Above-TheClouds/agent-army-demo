@@ -5,7 +5,7 @@ import * as Sentry from "@sentry/nextjs";
 export default function BugButton() {
   function triggerBug() {
     try {
-      throw new Error("AgentArmyDemoError: undefined is not a function — simulatedCrash()");
+      throw new Error("AgentArmyDemoError: intentional demo error — triggerBug()");
     } catch (err) {
       Sentry.captureException(err);
       alert("Bug triggered! Check Sentry and Linear.");
