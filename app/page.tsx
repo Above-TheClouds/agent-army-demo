@@ -186,7 +186,7 @@ export default function Home() {
           fontWeight: 400, fontStyle: "italic", color: "var(--gold)",
           marginBottom: "20px", lineHeight: 1.15,
         }}>
-          The window to build this moat is now.
+          The window to build this moat is now OR NEVER AHAHHHHH PART SUCCESS IS REAL NOW Or Not!
         </h2>
         <p style={{
           fontSize: "18px", color: "var(--muted)", maxWidth: "520px",
