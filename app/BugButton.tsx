@@ -5,29 +5,34 @@ export default function BugButton() {
     const id = Date.now();
     const title = `AgentArmyDemoError: undefined is not a function — simulatedCrash() [${id}]`;
 
-    await fetch("/api/webhook/sentry", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "created",
-        data: {
-          issue: {
-            title,
-            web_url: "",
-            culprit: "app/BugButton.tsx",
-            project: { name: "agent-army-demo" },
-            firstSeen: new Date().toISOString(),
+    try {
+      await fetch("/api/webhook/sentry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "created",
+          data: {
+            issue: {
+              title,
+              web_url: "",
+              culprit: "app/BugButton.tsx",
+              project: { name: "agent-army-demo" },
+              firstSeen: new Date().toISOString(),
+            },
           },
-        },
-      }),
-    });
+        }),
+      });
+    } catch {
+      // Network errors are swallowed so they don't become unhandled rejections
+      // captured by Sentry's global instrumentation as real exceptions.
+    }
 
     alert("Bug triggered! Check Linear.");
   }
 
   return (
     <button
-      onClick={triggerBug}
+      onClick={() => { triggerBug(); }}
       style={{
         display: "inline-block", padding: "13px 32px",
         border: "1px solid #ff4444", color: "#ff4444",
