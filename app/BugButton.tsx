@@ -1,26 +1,36 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
+
 export default function BugButton() {
   async function triggerBug() {
     const id = Date.now();
     const title = `AgentArmyDemoError: undefined is not a function — simulatedCrash() [${id}]`;
 
-    await fetch("/api/webhook/sentry", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "created",
-        data: {
-          issue: {
-            title,
-            web_url: "",
-            culprit: "app/BugButton.tsx",
-            project: { name: "agent-army-demo" },
-            firstSeen: new Date().toISOString(),
+    const error = new Error(`simulatedCrash() [${id}]`);
+    error.name = "AgentArmyDemoError";
+    Sentry.captureException(error);
+
+    try {
+      await fetch("/api/webhook/sentry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "created",
+          data: {
+            issue: {
+              title,
+              web_url: "",
+              culprit: "app/BugButton.tsx",
+              project: { name: "agent-army-demo" },
+              firstSeen: new Date().toISOString(),
+            },
           },
-        },
-      }),
-    });
+        }),
+      });
+    } catch (fetchError) {
+      console.error("Webhook fetch failed:", fetchError);
+    }
 
     alert("Bug triggered! Check Linear.");
   }
