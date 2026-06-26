@@ -2,6 +2,7 @@
 
 export default function BugButton() {
   async function triggerBug() {
+    try {
     const id = Date.now();
     const title = `AgentArmyDemoError: undefined is not a function — simulatedCrash() [${id}]`;
 
@@ -22,7 +23,11 @@ export default function BugButton() {
       }),
     });
 
-    alert("Bug triggered! Check Linear.");
+      alert("Bug triggered! Check Linear.");
+    } catch (err) {
+      console.error("Failed to trigger bug:", err);
+      alert("Failed to reach webhook. Check console.");
+    }
   }
 
   return (
