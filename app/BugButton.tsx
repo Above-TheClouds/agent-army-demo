@@ -1,5 +1,9 @@
 "use client";
 
+function simulatedCrash(): never {
+  throw new Error("AgentArmyDemoError: undefined is not a function — simulatedCrash()");
+}
+
 export default function BugButton() {
   async function triggerBug() {
     const id = Date.now();
@@ -22,7 +26,7 @@ export default function BugButton() {
       }),
     });
 
-    alert("Bug triggered! Check Linear.");
+    simulatedCrash();
   }
 
   return (
