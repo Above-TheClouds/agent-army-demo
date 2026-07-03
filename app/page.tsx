@@ -79,7 +79,7 @@ export default function Home() {
 
         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", justifyContent: "center" }}>
           <a
-            href="https://github.com/Above-TheClouds/agent-army-starter"
+            href="https://github.com/Above-TheClouds/agent-army-demo"
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -195,7 +195,7 @@ export default function Home() {
           Every week at Level 4 compounds. Fork the starter and ship your first autonomous agent today.
         </p>
         <a
-          href="https://github.com/Above-TheClouds/agent-army-starter"
+          href="https://github.com/Above-TheClouds/agent-army-demo"
           target="_blank"
           rel="noopener noreferrer"
           style={{
@@ -205,7 +205,7 @@ export default function Home() {
             textDecoration: "none", borderRadius: "4px",
           }}
         >
-          Fork agent-army-starter →
+          Fork agent-army-demo →
         </a>
       </section>
 
